@@ -55,7 +55,7 @@ Recommends: libgl1, libasound2
 Installed-Size: $SIZE
 Maintainer: Shouku Games <info@shoukugames.org>
 Homepage: https://shoukugames.org/
-Description: Candy shop management game for ages 10+
+Description: Candy shop management game for ages 10+, in English and Japanese
  Start with 1,000 yen, buy lollipops, gummy bears, chocolate and more at the
  wholesale market, keep them in your pantry and fill the display shelves.
  Then open the doors: colourful kids arrive with cravings and a patience

@@ -2,8 +2,11 @@
 Type=Application
 Version=1.0
 Name=Candy Store Tycoon
+Name[ja]=キャンディストア・タイクーン
 GenericName=Shop Management Game
+GenericName[ja]=お店経営ゲーム
 Comment=Run your own candy store: buy stock, fill the shelves and serve the kids (ages 10+)
+Comment[ja]=自分だけのおかし屋さんを経営しよう（10才以上）
 Exec=candystoretycoon
 Icon=candystoretycoon
 Terminal=false

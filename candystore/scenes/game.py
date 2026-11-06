@@ -3,21 +3,20 @@ import random
 
 import pygame
 
-from .. import art, gfx, storage, ui
+from .. import art, gfx, i18n, storage, ui
+from ..i18n import msg, prod, t as tr
 from ..app import W, H, Overlay, Scene
-from ..model import DAY_LENGTH, EVENTS, ORDER, PRODUCTS, UPGRADES, WIN_MONEY, Game
+from ..model import DAY_LENGTH, ORDER, PRODUCTS, UPGRADES, WIN_MONEY, Game
 from .panels import CX, CY, ConfirmOverlay, HowToOverlay, SavesOverlay, SettingsOverlay, Tile, close_button
 
 
-def yen(n):
-    n = int(round(n))
-    return ("-" if n < 0 else "") + f"¥{abs(n):,}"
+yen = i18n.yen
 
 
 class GameScene(Scene):
-    def __init__(self, app, shop_name="Sweet Treats", state=None, loaded_from=None):
+    def __init__(self, app, shop_name=None, state=None, loaded_from=None):
         super().__init__(app)
-        self.game = Game.from_dict(state) if state else Game(shop_name)
+        self.game = Game.from_dict(state) if state else Game(shop_name or tr("default_shop"))
         self.speed = 1
         self.particles = []
         self.hover = -1
@@ -30,7 +29,7 @@ class GameScene(Scene):
         self.money_flash = 0.0
         self._build_bar()
         if state:
-            self.toast(f"Loaded {self.game.s['shop_name']}, Day {self.game.s['day']}", "good")
+            self.toast(tr("loaded", name=self.game.s["shop_name"], day=i18n.day_label(self.game.s["day"])), "good")
             self.resume_phase()
         else:
             self.game.begin_day()
@@ -79,18 +78,18 @@ class GameScene(Scene):
             self.game_over()
             return
         if self.s["day"] == 1:
-            self.toast("Start by visiting the Market!", "good")
+            self.toast(tr("start_market"), "good")
 
     def open_store(self):
-        ok, msg = self.game.open_store()
+        ok, m = self.game.open_store()
         if not ok:
             self.app.audio.play("error")
-            self.toast(msg, "bad")
+            self.toast(msg(m), "bad")
             return
         self.clear_overlays()
         self.speed = 1
         self.app.audio.play("door")
-        self.toast(msg, "good")
+        self.toast(msg(m), "good")
         self.app.set_music("rush")
 
     def next_day(self):
@@ -131,7 +130,7 @@ class GameScene(Scene):
     def load_slot(self, n):
         data = storage.read_slot(n)
         if not data:
-            self.toast("That save slot is empty.", "bad")
+            self.toast(tr("slot_empty"), "bad")
             return
         self.app.audio.play("save")
         self.app.switch(GameScene(self.app, state=data["state"], loaded_from=n))
@@ -143,10 +142,10 @@ class GameScene(Scene):
     # ---------- bottom bar ----------
     def _build_bar(self):
         y = 652
-        self.b_market = ui.Button((14, y, 150, 52), "Market", self.open_market, "mint", 20, ui.icon_surface("cart", 24))
-        self.b_shelves = ui.Button((174, y, 210, 52), "Stock Shelves", self.open_shelves, "purple", 20, ui.icon_surface("shelf", 24))
-        self.b_speed = ui.Button((14, y, 140, 52), "Speed 1x", self.toggle_speed, "yellow", 20)
-        self.b_open = ui.Button((866, y - 2, 210, 56), "Open Store", self.open_store, "pink", 22, ui.icon_surface("door", 26))
+        self.b_market = ui.Button((14, y, 150, 52), tr("market"), self.open_market, "mint", 20, ui.icon_surface("cart", 24))
+        self.b_shelves = ui.Button((174, y, 210, 52), tr("stock_shelves"), self.open_shelves, "purple", 20, ui.icon_surface("shelf", 24))
+        self.b_speed = ui.Button((14, y, 160, 52), tr("speed", n=1), self.toggle_speed, "yellow", 19)
+        self.b_open = ui.Button((856, y - 2, 222, 56), tr("open_store"), self.open_store, "pink", 22, ui.icon_surface("door", 26))
         self.b_save = ui.Button((1090, y + 2, 52, 50), "", self.open_saves, "white", 18, ui.icon_surface("save", 26), radius=16)
         music_icon = "music" if self.app.settings["music"] else "music_off"
         self.b_music = ui.Button((1150, y + 2, 52, 50), "", self.toggle_music, "white", 18, ui.icon_surface(music_icon, 26),
@@ -166,7 +165,7 @@ class GameScene(Scene):
 
     def toggle_speed(self):
         self.speed = 2 if self.speed == 1 else 1
-        self.b_speed.label = f"Speed {self.speed}x"
+        self.b_speed.label = tr("speed", n=self.speed)
 
     def toggle_music(self):
         st = self.app.settings
@@ -191,23 +190,23 @@ class GameScene(Scene):
             pu, ss = g.pantry_used(), g.shelf_stock()
             if pu == 0 and ss == 0:
                 self.b_market.pulse = True
-                return "Step 1: Visit the Market and buy candy!"
+                return tr("tip_step1")
             if ss == 0:
                 self.b_shelves.pulse = True
-                return "Step 2: Put candy on your shelves!"
+                return tr("tip_step2")
             self.b_open.pulse = True
             if any(sh["count"] < g.shelf_cap() and self.s["pantry"][sh["type"]] > 0 for sh in self.s["shelves"]):
-                return "Shelves have room! Fill up, or Open Store."
-            return "All set! Press Open Store."
+                return tr("tip_room")
+            return tr("tip_ready")
         if phase == "rush":
-            return "Click a shelf to restock it!"
+            return tr("tip_rush")
         return ""
 
     # ---------- restock popup ----------
     def open_restock(self, i):
         sh = self.s["shelves"][i]
         if sh["restock"]:
-            self.toast("Already restocking this shelf!")
+            self.toast(tr("already_restocking"))
             return
         self.restock_idx = i
         kinds = [k for k in ORDER if self.game.unlocked(k)]
@@ -229,12 +228,12 @@ class GameScene(Scene):
         self.restock_tiles = []
 
     def do_restock(self, i, k):
-        ok, msg = self.game.begin_restock(i, k)
+        ok, m = self.game.begin_restock(i, k)
         if ok:
             self.app.audio.play("pop")
         else:
             self.app.audio.play("error")
-            self.toast(msg, "bad")
+            self.toast(msg(m), "bad")
         self.close_restock()
 
     # ---------- input ----------
@@ -322,14 +321,15 @@ class GameScene(Scene):
         elif kind == "unhappy":
             a.play("sad")
             self.particles.append({"kind": "storm", "x": d["x"], "y": d["y"] - 165, "vy": -18, "life": 1.6, "max": 1.6})
-            self.particles.append({"kind": "text", "x": d["x"], "y": d["y"] - 128, "text": d["text"], "color": gfx.RED,
+            text = tr("no_candy", name=prod(d["craving"])) if d["no_shelf"] else tr("too_slow")
+            self.particles.append({"kind": "text", "x": d["x"], "y": d["y"] - 128, "text": text, "color": gfx.RED,
                                    "vy": -40, "life": 1.6, "max": 1.6})
         elif kind == "empty":
-            self.toast(f"{PRODUCTS[d['type']]['name']} shelf is empty! Click it to restock.", "bad")
+            self.toast(tr("shelf_empty_toast", name=prod(d["type"])), "bad")
         elif kind == "restocked":
             a.play("restock")
             x, y, w, h = self.game.shelf_rects()[d["shelf"]]
-            self.particles.append({"kind": "text", "x": x + w / 2, "y": y + 30, "text": f"+{d['n']} {PRODUCTS[d['type']]['name']}",
+            self.particles.append({"kind": "text", "x": x + w / 2, "y": y + 30, "text": tr("restocked", n=d["n"], name=prod(d["type"])),
                                    "color": gfx.PURPLE, "vy": -40, "life": 1.2, "max": 1.2})
             for _ in range(10):
                 self.particles.append({"kind": "spark", "x": x + random.uniform(10, w - 10), "y": y + random.uniform(60, 220),
@@ -341,14 +341,14 @@ class GameScene(Scene):
                 a.play("door")
         elif kind == "wave":
             a.play("whoosh")
-            self.toast("Here comes a wave of kids!")
+            self.toast(tr("wave"))
         elif kind == "closing":
             a.play("door")
-            self.toast("Closing time! Finishing the last customers...")
+            self.toast(tr("closing_time"))
         elif kind == "day_end":
             a.play("day_end")
             self.speed = 1
-            self.b_speed.label = "Speed 1x"
+            self.b_speed.label = tr("speed", n=1)
             self.app.set_music("shop")
             self.push_overlay(SummaryOverlay(self))
 
@@ -359,7 +359,7 @@ class GameScene(Scene):
         art.shop(surface, t, s["shop_name"], self.door, rush)
         cap = g.shelf_cap()
         for i, (sh, rect) in enumerate(zip(s["shelves"], g.shelf_rects())):
-            hint = ("Click to restock" if rush else "Click to stock") if self.hover == i else None
+            hint = (tr("click_restock") if rush else tr("click_stock")) if self.hover == i else None
             art.shelf(surface, rect, sh, cap, g.price(sh["type"]), g.price_boosted(sh["type"]), self.hover == i, t, rush, hint)
         surface.blit(art.counter(), (1130, 344))
         if s["rush"]:
@@ -401,12 +401,11 @@ class GameScene(Scene):
         g, s = self.game, self.s
         rush = s["phase"] == "rush" and s["rush"]
         name = s["shop_name"]
-        ev = EVENTS.get(s["event"], EVENTS["normal"])
-        ev_name = "" if s["event"] == "normal" else ev["name"].rstrip("!")
+        ev_name = "" if s["event"] == "normal" else i18n.ev_name(s["event"]).rstrip("!！")
         f18 = gfx.font(19)
         items = []
-        items.append(("shop", min(240, f18.size(name)[0] + 32)))
-        items.append(("day", 70 + f18.size(str(s["day"]))[0] + (gfx.font(13).size(ev_name)[0] + 24 if ev_name else 0)))
+        items.append(("shop", min(240, gfx.text_size(name, 19)[0] + 32)))
+        items.append(("day", 32 + f18.size(i18n.day_label(s["day"]))[0] + (gfx.font(13).size(ev_name)[0] + 24 if ev_name else 0)))
         items.append(("money", 44 + max(80, f18.size(yen(self.money_shown))[0]) + 12))
         items.append(("stars", 5 * 22 + 26))
         items.append(("pantry", 44 + f18.size(f"{g.pantry_used()}/{g.pantry_cap()}")[0] + 12))
@@ -421,17 +420,16 @@ class GameScene(Scene):
             if kind == "shop":
                 ui.pill(surface, r, (255, 95, 162), gfx.PINK_D)
                 label = name
-                while f18.size(label)[0] > w - 28 and len(label) > 3:
+                while gfx.text_size(label, 19)[0] > w - 28 and len(label) > 3:
                     label = label[:-2] + "…" if not label.endswith("…") else label[:-2] + "…"
                 gfx.text(surface, label, r.center, 19, (255, 255, 255), shadow=gfx.PINK_D)
             else:
                 ui.pill(surface, r, (255, 250, 220) if (kind == "money" and self.money_flash > 0) else (255, 255, 255))
             if kind == "day":
-                gfx.text(surface, "Day", (r.x + 16, r.centery), 19, gfx.INK_SOFT, anchor="midleft", bold=False)
-                tr = gfx.text(surface, str(s["day"]), (r.x + 56, r.centery), 19, gfx.INK, anchor="midleft")
+                dr = gfx.text(surface, i18n.day_label(s["day"]), (r.x + 16, r.centery), 19, gfx.INK, anchor="midleft")
                 if ev_name:
                     cw = gfx.font(13).size(ev_name)[0] + 18
-                    cr = pygame.Rect(tr.right + 8, r.centery - 11, cw, 22)
+                    cr = pygame.Rect(dr.right + 8, r.centery - 11, cw, 22)
                     gfx.rrect(surface, cr, (255, 227, 240), 11)
                     gfx.text(surface, ev_name, cr.center, 13, gfx.PINK_D)
             elif kind == "money":
@@ -449,7 +447,7 @@ class GameScene(Scene):
                 f = min(1.0, s["rush"]["elapsed"] / DAY_LENGTH)
                 mins = 9 * 60 + f * 9 * 60
                 hh, mm = int(mins // 60), int(mins % 60 // 15 * 15)
-                label = "Closing" if f >= 1 else f"{hh - 12 if hh > 12 else hh}:{mm:02d} {'PM' if hh >= 12 else 'AM'}"
+                label = tr("closing") if f >= 1 else i18n.clock(hh, mm)
                 surface.blit(ui.icon_surface("clock", 24), (r.x + 12, r.centery - 14))
                 gfx.text(surface, label, (r.x + 44, r.centery - 3), 18, gfx.INK, anchor="midleft")
                 bar = pygame.Rect(r.x + 16, r.bottom - 11, r.w - 32, 6)
@@ -482,7 +480,7 @@ class GameScene(Scene):
         cx = min(max(x + w / 2, box.left + 24), box.right - 24)
         tri = [(cx - 12, box.bottom - 2), (cx + 12, box.bottom - 2), (cx, box.bottom + 14)]
         pygame.draw.polygon(surface, gfx.PINK, tri)
-        gfx.text(surface, f"Restock Shelf {self.restock_idx + 1} from pantry", (box.centerx, box.top + 19), 15, gfx.INK)
+        gfx.text(surface, tr("restock_title", n=self.restock_idx + 1), (box.centerx, box.top + 19), 15, gfx.INK)
         for tile in self.restock_tiles:
             tile.draw(surface, self.app.time)
 
@@ -496,13 +494,12 @@ class MorningOverlay(Overlay):
         self.panel = pygame.Rect(0, 0, 680, 650)
         self.panel.center = (CX, CY + 18)
         self.art = pygame.Surface((560, 250)).convert()
-        self.widgets.append(ui.Button((CX - 100, self.panel.bottom - 76, 200, 56), "Let's Go!", self.scene.start_prep, "pink", 24))
+        self.widgets.append(ui.Button((CX - 100, self.panel.bottom - 76, 200, 56), tr("lets_go"), self.scene.start_prep, "pink", 24))
 
     def draw(self, surface, t):
         s = self.scene.s
-        ev = EVENTS.get(s["event"], EVENTS["normal"])
         p = self.panel
-        ui.draw_panel(surface, p, f"Day {s['day']}: Good Morning!")
+        ui.draw_panel(surface, p, tr("good_morning", day=i18n.day_label(s["day"])))
         art.event_art(self.art, s["event"], t)
         ar = self.art.get_rect(midtop=(CX, p.top + 46))
         mask = gfx.rounded(ar.w, ar.h, 20, (255, 255, 255))
@@ -511,15 +508,15 @@ class MorningOverlay(Overlay):
         gfx.rrect(surface, ar.inflate(10, 10).move(0, 4), (255, 208, 228), 24)
         gfx.rrect(surface, ar.inflate(10, 10), (255, 255, 255), 24)
         surface.blit(img, ar)
-        gfx.text(surface, ev["name"], (CX, ar.bottom + 34), 34, gfx.PINK_D)
-        y = gfx.paragraph(surface, ev["desc"], (CX, ar.bottom + 60), 18, 560, gfx.INK)
-        chips = list(ev.get("effects", []))
+        gfx.text(surface, i18n.ev_name(s["event"]), (CX, ar.bottom + 34), 34, gfx.PINK_D)
+        y = gfx.paragraph(surface, i18n.ev_desc(s["event"]), (CX, ar.bottom + 60), 18, 560, gfx.INK)
+        chips = i18n.ev_effects(s["event"])
         today = s["today"]
         if today.get("melted"):
             n = today["melted"]
-            chips.append(("bad", f"Oh no! {n} chocolate bar{'s' if n > 1 else ''} melted!"))
+            chips.append(("bad", tr("melted", n=n) if n > 1 else tr("melted1")))
         if today.get("unlocked"):
-            chips.append(("good", "New at the Market: " + ", ".join(PRODUCTS[k]["name"] for k in today["unlocked"])))
+            chips.append(("good", tr("new_at_market", names=tr("list_sep").join(prod(k) for k in today["unlocked"]))))
         ui.chips_row(surface, chips, CX, y + 18, 15, max_w=600)
         super().draw(surface, t)
 
@@ -535,7 +532,7 @@ class MarketOverlay(Overlay):
         self.panel.center = (CX, CY + 16)
         p = self.panel
         self.widgets.append(close_button(self, p))
-        for i, (tab, label) in enumerate((("candy", "Candy Stock"), ("upg", "Shop Upgrades"))):
+        for i, (tab, label) in enumerate((("candy", tr("candy_stock")), ("upg", tr("shop_upgrades")))):
             self.widgets.append(ui.Button((p.left + 34 + i * 190, p.top + 86, 176, 40), label, lambda tab=tab: self._tab(tab),
                                           "pink" if self.tab == tab else "white", 17, radius=14))
         if self.tab == "candy":
@@ -545,7 +542,7 @@ class MarketOverlay(Overlay):
                     continue
                 mx = g.max_buy(k)
                 bx = r.centerx - 132
-                for j, (n, label) in enumerate(((1, "+1"), (5, "+5"), (10, "+10"), ("max", "Max"))):
+                for j, (n, label) in enumerate(((1, "+1"), (5, "+5"), (10, "+10"), ("max", tr("max")))):
                     ok = mx >= 1 if n == "max" else mx >= n
                     self.widgets.append(ui.Button((bx + j * 67, r.bottom - 44, 60, 32), label, lambda k=k, n=n: self._buy(k, n),
                                                   "purple" if n == "max" else "mint", 15, enabled=ok, radius=11, sound=None))
@@ -557,8 +554,8 @@ class MarketOverlay(Overlay):
                     c = u["cost"][lvl]
                     self.widgets.append(ui.Button((r.right - 118, r.centery - 20, 104, 40), yen(c), lambda uid=u["id"]: self._upgrade(uid),
                                                   "purple", 16, enabled=self.scene.s["money"] >= c, radius=13, sound=None))
-        self.widgets.append(ui.Button((CX - 230, p.bottom - 68, 240, 50), "Stock Shelves Next", self._to_shelves, "purple", 19))
-        self.widgets.append(ui.Button((CX + 30, p.bottom - 68, 140, 50), "Done", self.close, "white", 20))
+        self.widgets.append(ui.Button((CX - 230, p.bottom - 68, 240, 50), tr("stock_next"), self._to_shelves, "purple", 19))
+        self.widgets.append(ui.Button((CX + 30, p.bottom - 68, 140, 50), tr("done"), self.close, "white", 20))
 
     def _card(self, i):
         p = self.panel
@@ -574,18 +571,18 @@ class MarketOverlay(Overlay):
         self.refresh()
 
     def _buy(self, k, n):
-        ok, msg = self.scene.game.buy(k, n)
+        ok, m = self.scene.game.buy(k, n)
         if ok:
             self.app.audio.play("pop")
         else:
             self.app.audio.play("error")
-            self.scene.toast(msg, "bad")
+            self.scene.toast(msg(m), "bad")
         self.scene.changed()
 
     def _upgrade(self, uid):
-        ok, msg = self.scene.game.buy_upgrade(uid)
+        ok, m = self.scene.game.buy_upgrade(uid)
         self.app.audio.play("upgrade" if ok else "error")
-        self.scene.toast(msg, "good" if ok else "bad")
+        self.scene.toast(msg(m), "good" if ok else "bad")
         self.scene.changed()
 
     def _to_shelves(self):
@@ -595,11 +592,11 @@ class MarketOverlay(Overlay):
     def draw(self, surface, t):
         g, s = self.scene.game, self.scene.s
         p = self.panel
-        ui.draw_panel(surface, p, "Wholesale Market", "mint")
-        gfx.text(surface, "Budget:", (p.left + 36, p.top + 58), 19, gfx.INK, anchor="midleft", bold=False)
-        gfx.text(surface, yen(s["money"]), (p.left + 112, p.top + 58), 20, (179, 107, 0), anchor="midleft")
+        ui.draw_panel(surface, p, tr("market_title"), "mint")
+        br = gfx.text(surface, tr("budget"), (p.left + 36, p.top + 58), 19, gfx.INK, anchor="midleft", bold=False)
+        gfx.text(surface, yen(s["money"]), (br.right + 8, p.top + 58), 20, (179, 107, 0), anchor="midleft")
         used, cap = g.pantry_used(), g.pantry_cap()
-        gfx.text(surface, "Pantry", (p.right - 420, p.top + 58), 19, gfx.INK, anchor="midleft", bold=False)
+        gfx.text(surface, tr("pantry"), (p.right - 362, p.top + 58), 19, gfx.INK, anchor="midright", bold=False)
         ui.meter(surface, (p.right - 350, p.top + 48, 290, 22), used / cap, gfx.RED if used >= cap else gfx.MINT, f"{used} / {cap}")
         if self.tab == "candy":
             for i, k in enumerate(ORDER):
@@ -612,11 +609,11 @@ class MarketOverlay(Overlay):
                 gfx.rrect(surface, r, (227, 217, 255), 18)
                 gfx.rrect(surface, r.inflate(-6, -6), (255, 255, 255), 15)
                 surface.blit(art.upgrade_icon(u["icon"], 60), (r.x + 16, r.centery - 30))
-                gfx.text(surface, u["name"], (r.x + 92, r.y + 30), 20, gfx.INK, anchor="midleft")
-                gfx.text(surface, u["desc"], (r.x + 92, r.y + 58), 15, gfx.INK_SOFT, anchor="midleft", bold=False)
-                gfx.text(surface, f"Level {lvl}/{len(u['cost'])}", (r.x + 92, r.y + 84), 13, gfx.PURPLE_D, anchor="midleft")
+                gfx.text(surface, i18n.upg_name(u["id"]), (r.x + 92, r.y + 30), 20, gfx.INK, anchor="midleft")
+                gfx.text(surface, i18n.upg_desc(u["id"]), (r.x + 92, r.y + 58), 15, gfx.INK_SOFT, anchor="midleft", bold=False)
+                gfx.text(surface, tr("level", n=lvl, m=len(u["cost"])), (r.x + 92, r.y + 84), 13, gfx.PURPLE_D, anchor="midleft")
                 if lvl >= len(u["cost"]):
-                    ui.chip(surface, "MAXED", (r.right - 66, r.centery), "good", 15)
+                    ui.chip(surface, tr("maxed"), (r.right - 66, r.centery), "good", 15)
         super().draw(surface, t)
 
     def _draw_card(self, surface, i, k, g):
@@ -631,37 +628,37 @@ class MarketOverlay(Overlay):
             img = img.copy()
             img.set_alpha(90)
         surface.blit(img, img.get_rect(center=(r.centerx, r.y + 36)))
-        gfx.text(surface, p["name"], (r.centerx, r.y + 74), 20, (190, 170, 182) if locked else gfx.INK)
-        gfx.text(surface, p["desc"], (r.centerx, r.y + 96), 14, gfx.INK_SOFT, bold=False)
+        gfx.text(surface, prod(k), (r.centerx, r.y + 74), 20, (190, 170, 182) if locked else gfx.INK)
+        gfx.text(surface, i18n.prod_desc(k), (r.centerx, r.y + 96), 14, gfx.INK_SOFT, bold=False)
         if locked:
-            gfx.text(surface, f"Unlocks on Day {p['unlock']}", (r.centerx, r.y + 150), 16, gfx.PURPLE_D)
+            gfx.text(surface, tr("unlocks_on", day=i18n.day_label(p["unlock"])), (r.centerx, r.y + 150), 16, gfx.PURPLE_D)
             return
         c, pr = g.cost(k), g.price(k)
-        buy = f"Buy ¥{c}"
-        sell = f"Sell ¥{pr}"
+        buy = tr("buy_price", n=c)
+        sell = tr("sell_price", n=pr)
         bw, sw = gfx.font(14).size(buy)[0] + 18, gfx.font(14).size(sell)[0] + 18
         bx = r.centerx - (bw + sw + 8) / 2
         gfx.rrect(surface, (bx, r.y + 109, bw, 24), (255, 232, 242), 10)
         gfx.text(surface, buy, (bx + bw / 2, r.y + 121), 14, (194, 24, 91))
         gfx.rrect(surface, (bx + bw + 8, r.y + 109, sw, 24), (220, 250, 242), 10)
         gfx.text(surface, sell, (bx + bw + 8 + sw / 2, r.y + 121), 14, gfx.GREEN_TXT)
-        gfx.text(surface, f"In pantry: {self.scene.s['pantry'][k]}  ·  Profit ¥{pr - c} each", (r.centerx, r.y + 145), 13,
+        gfx.text(surface, tr("in_pantry", n=self.scene.s["pantry"][k], p=pr - c), (r.centerx, r.y + 145), 13,
                  gfx.INK_SOFT, bold=False)
         tag = None
         if c < p["cost"]:
-            tag = ("SALE!", (255, 59, 107), (184, 32, 74))
+            tag = (tr("tag_sale"), (255, 59, 107), (184, 32, 74))
         elif pr > p["price"]:
-            tag = ("HOT!", gfx.MINT, gfx.MINT_D)
+            tag = (tr("tag_hot"), gfx.MINT, gfx.MINT_D)
         elif c > p["cost"]:
-            tag = ("PRICEY", (255, 138, 31), (200, 100, 0))
+            tag = (tr("tag_pricey"), (255, 138, 31), (200, 100, 0))
         if tag:
             img = gfx.render_text(tag[0], 14, (255, 255, 255))
-            tr = pygame.Surface((img.get_width() + 20, 26), pygame.SRCALPHA)
-            gfx.rrect(tr, (0, 2, tr.get_width(), 24), tag[2], 10)
-            gfx.rrect(tr, (0, 0, tr.get_width(), 23), tag[1], 10)
-            tr.blit(img, img.get_rect(center=(tr.get_width() / 2, 11)))
-            tr = pygame.transform.rotozoom(tr, -8, 1)
-            surface.blit(tr, tr.get_rect(center=(r.right - 28, r.top + 6)))
+            badge = pygame.Surface((img.get_width() + 20, 26), pygame.SRCALPHA)
+            gfx.rrect(badge, (0, 2, badge.get_width(), 24), tag[2], 10)
+            gfx.rrect(badge, (0, 0, badge.get_width(), 23), tag[1], 10)
+            badge.blit(img, img.get_rect(center=(badge.get_width() / 2, 11)))
+            badge = pygame.transform.rotozoom(badge, -8, 1)
+            surface.blit(badge, badge.get_rect(center=(r.right - 28, r.top + 6)))
 
 
 class ShelvesOverlay(Overlay):
@@ -688,13 +685,13 @@ class ShelvesOverlay(Overlay):
                                           enabled=sh["count"] > 0, radius=11, sound=None))
             self.widgets.append(ui.Button((bx + 60, r.centery - 17, 54, 34), "+1", lambda i=i: self._add(i, 1), "white", 15,
                                           enabled=can_add, radius=11, sound=None))
-            self.widgets.append(ui.Button((bx + 120, r.centery - 17, 62, 34), "Fill", lambda i=i: self._add(i, "fill"), "pink", 15,
+            self.widgets.append(ui.Button((bx + 120, r.centery - 17, 66, 34), tr("fill"), lambda i=i: self._add(i, "fill"), "pink", 15,
                                           enabled=can_add, radius=11, sound=None))
         y = p.bottom - 72
-        self.widgets.append(ui.Button((CX - 330, y, 220, 52), "Fill All Shelves", self._fill_all, "mint", 19, sound=None))
-        self.widgets.append(ui.Button((CX - 90, y - 2, 230, 56), "Open Store", self.scene.open_store, "pink", 22,
+        self.widgets.append(ui.Button((CX - 330, y, 220, 52), tr("fill_all"), self._fill_all, "mint", 19, sound=None))
+        self.widgets.append(ui.Button((CX - 90, y - 2, 230, 56), tr("open_store"), self.scene.open_store, "pink", 22,
                                       ui.icon_surface("door", 26)))
-        self.widgets.append(ui.Button((CX + 160, y, 150, 52), "Done", self.close, "white", 20))
+        self.widgets.append(ui.Button((CX + 160, y, 150, 52), tr("done"), self.close, "white", 20))
 
     def _row(self, i):
         p = self.panel
@@ -715,14 +712,14 @@ class ShelvesOverlay(Overlay):
             self.app.audio.play("restock")
         else:
             self.app.audio.play("error")
-            self.scene.toast("Nothing to fill. Buy matching candy or change shelf types.")
+            self.scene.toast(tr("nothing_to_fill"))
         self.scene.changed()
 
     def draw(self, surface, t):
         g, s = self.scene.game, self.scene.s
         p = self.panel
-        ui.draw_panel(surface, p, "Stock Your Shelves", "purple")
-        gfx.text(surface, "Pick a candy for each shelf, then fill it from your pantry. Only candy on shelves can be sold!",
+        ui.draw_panel(surface, p, tr("shelves_title"), "purple")
+        gfx.text(surface, tr("shelves_help"),
                  (CX, p.top + 58), 16, gfx.INK, bold=False)
         kinds = [k for k in ORDER if g.unlocked(k)]
         x = CX - (len(kinds) * 82 + 190) / 2
@@ -733,7 +730,7 @@ class ShelvesOverlay(Overlay):
             art.blit_candy(surface, k, (r.x + 20, r.centery), 32)
             gfx.text(surface, str(s["pantry"][k]), (r.x + 52, r.centery), 17, gfx.INK)
             x += 82
-        gfx.text(surface, f"in pantry ({g.pantry_used()}/{g.pantry_cap()})", (x + 6, p.top + 102), 15, gfx.INK_SOFT,
+        gfx.text(surface, tr("in_pantry_total", n=g.pantry_used(), m=g.pantry_cap()), (x + 6, p.top + 102), 15, gfx.INK_SOFT,
                  anchor="midleft", bold=False)
         cap = g.shelf_cap()
         for i, sh in enumerate(s["shelves"]):
@@ -741,9 +738,9 @@ class ShelvesOverlay(Overlay):
             gfx.rrect(surface, r.move(0, 4), (255, 208, 228), 18)
             gfx.rrect(surface, r, (255, 208, 228), 18)
             gfx.rrect(surface, r.inflate(-6, -6), (255, 255, 255), 15)
-            gfx.text(surface, f"Shelf {i + 1}", (r.x + 18, r.centery), 18, gfx.INK, anchor="midleft")
+            gfx.text(surface, tr("shelf_n", n=i + 1), (r.x + 18, r.centery), 18, gfx.INK, anchor="midleft")
             mx = r.x + 104 + 6 * 54 + 16
-            gfx.text(surface, f"{PRODUCTS[sh['type']]['name']}: {sh['count']}/{cap}", (mx, r.centery - 12), 14, gfx.INK, anchor="midleft")
+            gfx.text(surface, f"{prod(sh['type'])}: {sh['count']}/{cap}", (mx, r.centery - 12), 14, gfx.INK, anchor="midleft")
             ui.meter(surface, (mx, r.centery + 2, 170, 16), sh["count"] / cap, gfx.PINK)
         super().draw(surface, t)
 
@@ -755,57 +752,57 @@ class SummaryOverlay(Overlay):
         self.panel = pygame.Rect(0, 0, 640, 600)
         self.panel.center = (CX, CY + 16)
         p = self.panel
-        self.widgets.append(ui.Button((CX - 230, p.bottom - 74, 200, 54), "Save Game", self.scene.open_saves, "white", 20,
+        self.widgets.append(ui.Button((CX - 230, p.bottom - 74, 200, 54), tr("save_game"), self.scene.open_saves, "white", 20,
                                       ui.icon_surface("save", 24)))
-        self.widgets.append(ui.Button((CX + 20, p.bottom - 76, 210, 58), "Next Day", self.scene.next_day, "pink", 24))
+        self.widgets.append(ui.Button((CX + 20, p.bottom - 76, 210, 58), tr("next_day"), self.scene.next_day, "pink", 24))
 
     def draw(self, surface, t):
         s = self.scene.s
         sm = s["summary"]
         p = self.panel
-        ui.draw_panel(surface, p, f"Day {sm['day']} Complete!", "purple")
-        msg = "Nice work today!"
+        ui.draw_panel(surface, p, tr("day_complete", day=i18n.day_label(sm["day"])), "purple")
+        note = tr("sum_nice")
         if sm["unhappy"] == 0 and sm["served"] > 5:
-            msg = "Perfect day: every kid left happy!"
+            note = tr("sum_perfect")
         elif sm["unhappy"] > sm["served"]:
-            msg = "Lots of kids left empty-handed. Keep shelves stocked!"
+            note = tr("sum_empty")
         elif sm["profit"] < 0:
-            msg = "You lost money today. Stock more candy to sell more!"
-        gfx.text(surface, msg, (CX, p.top + 60), 19, gfx.INK)
-        cells = [("Happy customers", str(sm["served"]), gfx.GREEN_TXT), ("Unhappy customers", str(sm["unhappy"]),
+            note = tr("sum_loss")
+        gfx.text(surface, note, (CX, p.top + 60), 19, gfx.INK)
+        cells = [(tr("happy_customers"), str(sm["served"]), gfx.GREEN_TXT), (tr("unhappy_customers"), str(sm["unhappy"]),
                                                                            gfx.RED_TXT if sm["unhappy"] else gfx.INK),
-                 ("Sales", yen(sm["revenue"]), gfx.GREEN_TXT), ("Shop rent", "-" + yen(sm["rent"]), gfx.RED_TXT)]
+                 (tr("sales"), yen(sm["revenue"]), gfx.GREEN_TXT), (tr("rent"), "-" + yen(sm["rent"]), gfx.RED_TXT)]
         for i, (label, val, col) in enumerate(cells):
             r = pygame.Rect(p.left + 34 + (i % 2) * 292, p.top + 88 + (i // 2) * 62, 280, 52)
             self._stat(surface, r, label, val, col, 22)
         r = pygame.Rect(p.left + 34, p.top + 214, 572, 62)
         prof = sm["profit"]
-        self._stat(surface, r, "Today's profit", ("+" if prof >= 0 else "") + yen(prof), gfx.GREEN_TXT if prof >= 0 else gfx.RED_TXT, 30)
+        self._stat(surface, r, tr("profit"), ("+" if prof >= 0 else "") + yen(prof), gfx.GREEN_TXT if prof >= 0 else gfx.RED_TXT, 30)
         r = pygame.Rect(p.left + 34, p.top + 288, 280, 52)
-        self._stat(surface, r, "Budget", yen(s["money"]), gfx.INK, 22)
+        self._stat(surface, r, tr("budget_plain"), yen(s["money"]), gfx.INK, 22)
         r = pygame.Rect(p.left + 326, p.top + 288, 280, 52)
-        self._stat(surface, r, "Rating", "", gfx.INK, 22)
+        self._stat(surface, r, tr("rating"), "", gfx.INK, 22)
         ui.stars(surface, s["rep"], (r.right - 176, r.centery - 10), 19)
         diff = sm["rep_end"] - sm["rep_start"]
         gfx.text(surface, f"{'+' if diff >= 0 else ''}{diff:.1f}", (r.right - 20, r.centery), 15,
                  gfx.GREEN_TXT if diff >= 0 else gfx.RED_TXT, anchor="midright")
         sold = sorted(sm["sold"].items(), key=lambda kv: -kv[1])
         if sold:
-            widths = [gfx.font(16).size(f"{n} sold")[0] + 56 for _k, n in sold]
+            widths = [gfx.font(16).size(tr("sold", n=n))[0] + 56 for _k, n in sold]
             x = CX - (sum(widths) + 10 * (len(sold) - 1)) / 2
             for (k, n), w in zip(sold, widths):
                 rr = pygame.Rect(int(x), p.top + 356, w, 40)
                 gfx.rrect(surface, rr, (243, 220, 232), 12)
                 gfx.rrect(surface, rr.inflate(-4, -4), (255, 255, 255), 10)
                 art.blit_candy(surface, k, (rr.x + 22, rr.centery), 32)
-                gfx.text(surface, f"{n} sold", (rr.x + 42, rr.centery), 16, gfx.INK, anchor="midleft")
+                gfx.text(surface, tr("sold", n=n), (rr.x + 42, rr.centery), 16, gfx.INK, anchor="midleft")
                 x += w + 10
-            gfx.text(surface, f"Best seller: {PRODUCTS[sold[0][0]]['name']}", (CX, p.top + 420), 16, gfx.INK_SOFT, bold=False)
+            gfx.text(surface, tr("best_seller", name=prod(sold[0][0])), (CX, p.top + 420), 16, gfx.INK_SOFT, bold=False)
         else:
-            gfx.text(surface, "Nothing sold today.", (CX, p.top + 380), 17, gfx.INK_SOFT, bold=False)
+            gfx.text(surface, tr("nothing_sold"), (CX, p.top + 380), 17, gfx.INK_SOFT, bold=False)
         if not s["won"]:
             ui.meter(surface, (CX - 200, p.top + 446, 400, 18), max(0, s["money"]) / WIN_MONEY, gfx.PURPLE,
-                     f"Tycoon goal: {yen(max(0, s['money']))} / {yen(WIN_MONEY)}")
+                     tr("goal_meter", now=yen(max(0, s["money"])), goal=yen(WIN_MONEY)))
         super().draw(surface, t)
 
     @staticmethod
@@ -828,24 +825,25 @@ class MenuOverlay(Overlay):
         p = self.panel
         y = p.top + (110 if self.ready else 64)
         sc = self.scene
-        items = [("Resume", self.close, "pink", 24), ("Save Game", sc.open_saves, "mint", 20),
-                 ("Load Game", lambda: sc.push_overlay(SavesOverlay(sc, "load", sc.load_slot)), "mint", 20),
-                 ("How to Play", lambda: sc.push_overlay(HowToOverlay(sc)), "purple", 20),
-                 ("Settings", lambda: sc.push_overlay(SettingsOverlay(sc)), "yellow", 20),
-                 ("Quit to Title", self._quit, "white", 20)]
-        for label, fn, style, size in items:
-            h = 58 if label == "Resume" else 52
+        items = [("resume", self.close, "pink", 24), ("save_game", sc.open_saves, "mint", 20),
+                 ("load_game", lambda: sc.push_overlay(SavesOverlay(sc, "load", sc.load_slot)), "mint", 20),
+                 ("how_to_play", lambda: sc.push_overlay(HowToOverlay(sc)), "purple", 20),
+                 ("settings", lambda: sc.push_overlay(SettingsOverlay(sc)), "yellow", 20),
+                 ("quit_to_title", self._quit, "white", 20)]
+        for key, fn, style, size in items:
+            label = tr(key)
+            h = 58 if key == "resume" else 52
             self.widgets.append(ui.Button((p.left + 50, y, p.w - 100, h), label, fn, style, size))
             y += h + 18
 
     def _quit(self):
-        self.scene.push_overlay(ConfirmOverlay(self.scene, "Quit?", "Any progress since your last save will be lost.",
-                                               "Quit to Title", self.scene.quit_to_title))
+        self.scene.push_overlay(ConfirmOverlay(self.scene, tr("quit_q"), tr("quit_msg"),
+                                               tr("quit_to_title"), self.scene.quit_to_title))
 
     def draw(self, surface, t):
-        ui.draw_panel(surface, self.panel, "Ready?" if self.ready else "Paused", "purple")
+        ui.draw_panel(surface, self.panel, tr("ready") if self.ready else tr("paused"), "purple")
         if self.ready:
-            gfx.paragraph(surface, "This game was saved during a rush. Press Resume when you are ready!",
+            gfx.paragraph(surface, tr("ready_msg"),
                           (CX, self.panel.top + 50), 17, 360, gfx.INK)
         super().draw(surface, t)
 
@@ -858,27 +856,27 @@ class GameOverOverlay(Overlay):
         self.panel.center = (CX, CY)
         p = self.panel
         sc = self.scene
-        self.widgets.append(ui.Button((CX - 230, p.bottom - 76, 210, 54), "Load a Save",
+        self.widgets.append(ui.Button((CX - 230, p.bottom - 76, 210, 54), tr("load_a_save"),
                                       lambda: sc.push_overlay(SavesOverlay(sc, "load", sc.load_slot)), "mint", 20))
-        self.widgets.append(ui.Button((CX + 20, p.bottom - 76, 210, 54), "Main Menu", sc.quit_to_title, "pink", 20))
+        self.widgets.append(ui.Button((CX + 20, p.bottom - 76, 210, 54), tr("main_menu"), sc.quit_to_title, "pink", 20))
 
     def draw(self, surface, t):
         s = self.scene.s
         p = self.panel
-        ui.draw_panel(surface, p, "Game Over", "dark")
-        gfx.text(surface, "Out of candy and out of cash!", (CX, p.top + 64), 26, gfx.INK)
+        ui.draw_panel(surface, p, tr("game_over"), "dark")
+        gfx.text(surface, tr("out_of_cash"), (CX, p.top + 64), 26, gfx.INK)
         d = s["day"]
-        gfx.text(surface, f"{s['shop_name']} closed its doors after {d} day{'s' if d != 1 else ''}.", (CX, p.top + 102), 18,
+        gfx.text(surface, tr("closed_after", name=s["shop_name"], n=d) if d != 1 else tr("closed_after1", name=s["shop_name"]), (CX, p.top + 102), 18,
                  gfx.INK, bold=False)
         tot = s["totals"]
-        for i, (label, val) in enumerate((("Total sales", yen(tot["revenue"])), ("Happy kids", f"{tot['served']:,}"),
-                                          ("Best day", yen(tot["best_day"])), ("Final rating", ""))):
+        for i, (label, val) in enumerate(((tr("total_sales"), yen(tot["revenue"])), (tr("happy_kids"), f"{tot['served']:,}"),
+                                          (tr("best_day"), yen(tot["best_day"])), (tr("final_rating"), ""))):
             r = pygame.Rect(p.left + 34 + (i % 2) * 282, p.top + 136 + (i // 2) * 64, 270, 52)
             SummaryOverlay._stat(surface, r, label, val, gfx.INK, 20)
             if not val:
                 ui.stars(surface, s["rep"], (r.right - 136, r.centery - 9), 17)
         art.draw_kid(surface, art._LOOKS[4], CX, p.top + 400, mood="sad")
-        gfx.text(surface, "Tip: always keep enough money to buy stock tomorrow!", (CX, p.bottom - 100), 15, gfx.INK_SOFT, bold=False)
+        gfx.text(surface, tr("gameover_tip"), (CX, p.bottom - 100), 15, gfx.INK_SOFT, bold=False)
         super().draw(surface, t)
 
 
@@ -889,19 +887,19 @@ class WinOverlay(Overlay):
         self.panel = pygame.Rect(0, 0, 640, 560)
         self.panel.center = (CX, CY + 10)
         self.art = pygame.Surface((520, 200)).convert()
-        self.widgets.append(ui.Button((CX - 110, self.panel.bottom - 76, 220, 56), "Keep Playing", self.scene.keep_playing, "pink", 22))
+        self.widgets.append(ui.Button((CX - 110, self.panel.bottom - 76, 220, 56), tr("keep_playing"), self.scene.keep_playing, "pink", 22))
 
     def draw(self, surface, t):
         s = self.scene.s
         p = self.panel
-        ui.draw_panel(surface, p, "Candy Tycoon!", "mint")
+        ui.draw_panel(surface, p, tr("tycoon"), "mint")
         art.event_art(self.art, "opening", t)
         ar = self.art.get_rect(midtop=(CX, p.top + 50))
         gfx.rrect(surface, ar.inflate(10, 10), (255, 255, 255), 22)
         surface.blit(self.art, ar)
-        gfx.text(surface, f"You reached {yen(WIN_MONEY)}!", (CX, ar.bottom + 36), 26, gfx.INK)
-        gfx.paragraph(surface, f"{s['shop_name']} is now the most famous candy store in town. Amazing job, Tycoon!",
+        gfx.text(surface, tr("reached", goal=yen(WIN_MONEY)), (CX, ar.bottom + 36), 26, gfx.INK)
+        gfx.paragraph(surface, tr("win_msg", name=s["shop_name"]),
                       (CX, ar.bottom + 62), 18, 520, gfx.INK)
-        gfx.text(surface, f"Days played: {s['day']}  ·  Happy kids served: {s['totals']['served']:,}", (CX, ar.bottom + 128), 16,
+        gfx.text(surface, tr("win_stats", days=s["day"], kids=f"{s['totals']['served']:,}"), (CX, ar.bottom + 128), 16,
                  gfx.INK_SOFT, bold=False)
         super().draw(surface, t)

@@ -1,24 +1,23 @@
 """Credits screen and the full GNU GPL v3 licence viewer."""
-import datetime
 import os
 import webbrowser
 
 import pygame
 
-from .. import CREATOR, EMAIL, RELEASE_DATE, TITLE, WEBSITE, __version__, art, gfx, ui
+from .. import CREATOR, EMAIL, RELEASE_DATE, TITLE, WEBSITE, __version__, art, gfx, i18n, ui
+from ..i18n import t
 from ..app import W, H, Scene
 from ..paths import root
 
 
 def release_date_text():
-    d = datetime.date.fromisoformat(RELEASE_DATE)
-    return f"{d.strftime('%B')} {d.day}, {d.year}"
+    return i18n.long_date(RELEASE_DATE)
 
 
 class LinkLabel:
     def __init__(self, center, label, url, size=20):
         self.label, self.url, self.size = label, url, size
-        w, h = gfx.font(size).size(label)
+        w, h = gfx.font(size, latin=True).size(label)
         self.rect = pygame.Rect(0, 0, w, h + 4)
         self.rect.center = center
         self.hover = False
@@ -36,9 +35,9 @@ class LinkLabel:
             return True
         return False
 
-    def draw(self, surface, t):
+    def draw(self, surface, tm):
         col = gfx.PINK_D if self.hover else gfx.PURPLE_D
-        r = gfx.text(surface, self.label, self.rect.center, self.size, col)
+        r = gfx.text(surface, self.label, self.rect.center, self.size, col, latin=True)
         pygame.draw.line(surface, col, (r.left, r.bottom - 2), (r.right, r.bottom - 2), 2)
 
 
@@ -55,8 +54,8 @@ class CreditsScene(Scene):
         self.widgets = [
             LinkLabel((p.centerx, p.top + 302), WEBSITE, WEBSITE, 20),
             LinkLabel((p.centerx, p.top + 336), EMAIL, f"mailto:{EMAIL}", 20),
-            ui.Button((p.centerx - 230, p.bottom - 74, 220, 52), "View License", self.license, "purple", 20),
-            ui.Button((p.centerx + 10, p.bottom - 74, 220, 52), "Back", self.back, "pink", 20),
+            ui.Button((p.centerx - 230, p.bottom - 74, 220, 52), t("view_license"), self.license, "purple", 20),
+            ui.Button((p.centerx + 10, p.bottom - 74, 220, 52), t("back"), self.back, "pink", 20),
         ]
 
     def back(self):
@@ -77,31 +76,32 @@ class CreditsScene(Scene):
         self.dt = dt
 
     def draw_world(self, surface):
-        t = self.app.time
-        self.backdrop.draw(surface, t, self.dt)
+        tm = self.app.time
+        self.backdrop.draw(surface, tm, self.dt)
         p = self.panel
-        ui.draw_panel(surface, p, "Credits", "purple")
+        ui.draw_panel(surface, p, t("credits_title"), "purple")
         cx = p.centerx
-        gfx.text(surface, TITLE, (cx, p.top + 66), 34, gfx.PINK_D)
-        gfx.text(surface, f"Version v{__version__}  ·  Released {release_date_text()}", (cx, p.top + 102), 18, gfx.INK, bold=False)
-        y = p.top + 146
-        for head, body in (("Created by", CREATOR), ("Made with", "Claude Code (Anthropic)")):
+        gfx.text(surface, TITLE, (cx, p.top + 62), 34, gfx.PINK_D, latin=True)
+        if i18n.lang() == "ja":
+            gfx.text(surface, t("title_ja"), (cx, p.top + 92), 16, gfx.PINK_D)
+        gfx.text(surface, t("version_line", v=__version__, date=release_date_text()), (cx, p.top + 116), 18, gfx.INK, bold=False)
+        y = p.top + 152
+        for head, body in ((t("created_by"), CREATOR), (t("made_with"), t("claude_code"))):
             gfx.text(surface, head, (cx, y), 16, gfx.INK_SOFT, bold=False)
             gfx.text(surface, body, (cx, y + 26), 26, gfx.INK)
-            y += 66
-        gfx.text(surface, "Shouku Games", (cx, p.top + 274), 18, gfx.INK_SOFT)
-        ui.chip(surface, "Recommended for ages 10+", (cx, p.top + 384), "info", 16)
-        gfx.text(surface, "License: GNU General Public License v3.0 (GPL-3.0)", (cx, p.top + 428), 18, gfx.INK)
-        gfx.paragraph(surface, "This game is free software: you can share and change it under the terms of the GPL v3. "
-                               "It comes with ABSOLUTELY NO WARRANTY.", (cx, p.top + 446), 14, 640, gfx.INK_SOFT)
-        gfx.text(surface, "Font: Fredoka (SIL Open Font License)  ·  Music & sound: original, made in code",
+            y += 62
+        gfx.text(surface, "Shouku Games", (cx, p.top + 276), 18, gfx.INK_SOFT, latin=True)
+        ui.chip(surface, t("recommended_ages"), (cx, p.top + 384), "info", 16)
+        gfx.text(surface, t("license_line"), (cx, p.top + 428), 18, gfx.INK)
+        gfx.paragraph(surface, t("license_short"), (cx, p.top + 446), 14, 640, gfx.INK_SOFT)
+        gfx.text(surface, t("font_credit"),
                  (cx, p.top + 500), 13, gfx.INK_SOFT, bold=False)
         for i, k in enumerate(("lolli", "gummy", "choc")):
             art.blit_candy(surface, k, (p.left + 70, p.top + 150 + i * 90), 70, i)
         for i, k in enumerate(("ice", "jaw", "cotton")):
             art.blit_candy(surface, k, (p.right - 70, p.top + 150 + i * 90), 70, i)
         for w in self.widgets:
-            w.draw(surface, t)
+            w.draw(surface, tm)
 
 
 def read_license():
@@ -128,11 +128,11 @@ class LicenseScene(Scene):
         for para in read_license().replace("\r", "").split("\n\n"):
             text = " ".join(line.strip() for line in para.splitlines() if line.strip())
             if text:
-                self.lines.extend(gfx.wrap(text, 15, self.view.w - 10, bold=False))
+                self.lines.extend(gfx.wrap(text, 15, self.view.w - 10, bold=False, latin=True))
             self.lines.append("")
         self.scroll = 0.0
         self.drag = None
-        self.back_btn = ui.Button((self.panel.centerx - 90, self.panel.bottom - 72, 180, 50), "Back", self.back, "pink", 20)
+        self.back_btn = ui.Button((self.panel.centerx - 90, self.panel.bottom - 72, 180, 50), t("back"), self.back, "pink", 20)
         self.bg = None
 
     @property
@@ -176,14 +176,16 @@ class LicenseScene(Scene):
             self.bg = gfx.vgrad_n(W, H, [(255, 159, 208), (255, 201, 227), (255, 231, 184)]).convert()
         surface.blit(self.bg, (0, 0))
         p = self.panel
-        ui.draw_panel(surface, p, "GNU GPL v3.0 License", "purple")
+        ui.draw_panel(surface, p, t("license_title"), "purple")
+        if t("license_note"):
+            gfx.text(surface, t("license_note"), (p.centerx, p.bottom - 92), 14, gfx.INK_SOFT, bold=False)
         clip = surface.get_clip()
         surface.set_clip(self.view)
         first = int(self.scroll // self.LINE_H)
         y = self.view.top - (self.scroll % self.LINE_H)
         for line in self.lines[first:first + self.view.h // self.LINE_H + 2]:
             if line:
-                gfx.text(surface, line, (self.view.left, y), 15, gfx.INK, anchor="topleft", bold=False)
+                gfx.text(surface, line, (self.view.left, y), 15, gfx.INK, anchor="topleft", bold=False, latin=True)
             y += self.LINE_H
         surface.set_clip(clip)
         bar = self._bar()

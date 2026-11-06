@@ -34,13 +34,13 @@ def test_new_game_starts_with_1000_yen_and_grand_opening():
 
 def test_buying_respects_money_and_pantry_space():
     g = new_game()
-    assert g.buy("lolli", 10) == (True, "")
+    assert g.buy("lolli", 10) == (True, None)
     assert g.s["money"] == 800 and g.s["pantry"]["lolli"] == 10
     assert not g.buy("choc", 100)[0]                # not enough money / space
     assert g.buy("lolli", "max")[0]
     assert g.pantry_used() == 50                    # pantry full at 50 (max fills the space)
     ok, msg = g.buy("lolli", 1)
-    assert not ok and "full" in msg
+    assert not ok and msg[0] == "pantry_full"
 
 
 def test_locked_candy_cannot_be_bought_until_its_day():
@@ -62,7 +62,7 @@ def test_shelves_hold_ten_and_switching_returns_items_to_pantry():
 def test_store_will_not_open_with_empty_shelves():
     g = new_game()
     ok, msg = g.open_store()
-    assert not ok and "empty" in msg
+    assert not ok and msg[0] == "shelves_empty"
 
 
 def test_a_full_day_sells_candy_and_charges_rent():
@@ -175,3 +175,32 @@ def test_shelf_layout_fits_between_door_and_counter():
     for n in range(3, 6):
         rects = model.shelf_layout(n)
         assert rects[0][0] >= 140 and rects[-1][0] + rects[-1][2] <= 1140
+
+
+def test_every_model_message_and_content_key_has_both_languages():
+    from candystore import i18n
+    keys = ["locked", "pantry_full", "space_left", "no_money", "maxed", "upgraded", "not_prep", "shelves_empty", "open",
+            "restocking", "none_in_pantry", "shelf_full"]
+    for code in i18n.LANGS:
+        i18n.LANG["current"] = code
+        for k in keys:
+            text = i18n.msg((k, {"n": 3, "type": "lolli", "upgrade": "pantry"}))
+            assert text and not text.startswith("msg."), (code, k)
+        for k in model.ORDER:
+            assert i18n.prod(k) and i18n.prod_desc(k)
+        for e in model.EVENTS:
+            assert i18n.ev_name(e) and i18n.ev_desc(e) and i18n.ev_effects(e)
+        for u in model.UPGRADES:
+            assert i18n.upg_name(u["id"]) and i18n.upg_desc(u["id"])
+    i18n.LANG["current"] = "en"
+
+
+def test_strings_table_is_complete_and_placeholders_match():
+    import re
+    from candystore import i18n
+    optional_blank = {"title_ja", "license_note"}
+    for key, (en, ja) in i18n.STRINGS.items():
+        assert ja, key
+        assert en or key in optional_blank, key
+        if en:
+            assert set(re.findall(r"{(\w+)}", en)) == set(re.findall(r"{(\w+)}", ja)), key

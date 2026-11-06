@@ -9,7 +9,7 @@ from functools import lru_cache
 
 import pygame
 
-from . import gfx
+from . import gfx, i18n
 from .gfx import Pen, darken, hexrgb, lighten, sprite
 from .model import FLOOR_Y, H, PRODUCTS, W
 
@@ -521,8 +521,7 @@ def shop_base(shop_name):
         flag = sprite(24, 24, lambda p, c=_bunting_color(i): p.poly(c, [(1, 0), (23, 0), (12, 23)]))
         surf.blit(flag, (fx - 12, fy))
     # name sign
-    f = gfx.font(32)
-    tw = max(260, f.size(shop_name)[0] + 70)
+    tw = max(260, gfx.text_size(shop_name, 32)[0] + 70)
     sx, sy = W // 2 - tw // 2, 140
     pygame.draw.aaline(surf, (176, 122, 82), (sx + 30, sy), (sx + 50, 118))
     pygame.draw.aaline(surf, (176, 122, 82), (sx + tw - 30, sy), (sx + tw - 50, 118))
@@ -584,7 +583,8 @@ def _open_sign(is_open):
     s = pygame.Surface((96, 38), pygame.SRCALPHA)
     gfx.rrect(s, (2, 2, 92, 34), (255, 255, 255), 11)
     gfx.rrect(s, (5, 5, 86, 28), gfx.MINT if is_open else gfx.RED, 9)
-    gfx.text(s, "OPEN" if is_open else "CLOSED", (48, 19), 17, (255, 255, 255))
+    label = i18n.t("open_sign" if is_open else "closed_sign")
+    gfx.text(s, label, (48, 19), 17 if gfx.font(17).size(label)[0] < 80 else 14, (255, 255, 255))
     return s
 
 
@@ -599,8 +599,7 @@ def shop(surface, t, shop_name, door_open=0.0, store_open=False):
         win.blit(_window_cross(), (0, 0))
         surface.blit(win, (wx - 40, 125))
     # marquee lights
-    f = gfx.font(32)
-    tw = max(260, f.size(shop_name)[0] + 70)
+    tw = max(260, gfx.text_size(shop_name, 32)[0] + 70)
     sx = W // 2 - tw // 2
     for i in range(12):
         lx = sx + 14 + i * (tw - 28) / 11
@@ -692,9 +691,12 @@ def shelf_label(w, kind, price, boosted, hover):
     col = PRODUCTS[kind]["color"]
     gfx.rrect(s, (0, 0, w - 12, 38), col, 12)
     gfx.rrect(s, (3, 3, w - 18, 32), (255, 255, 255) if hover else (255, 250, 242), 10)
-    name = PRODUCTS[kind]["name"]
+    name = i18n.prod(kind)
     size = 16 if w >= 170 else 14
-    gfx.text(s, name, ((w - 12) / 2 - 22, 19), size, gfx.INK)
+    room = w - 12 - 66
+    while size > 10 and gfx.font(size).size(name)[0] > room:
+        size -= 1
+    gfx.text(s, name, ((w - 12 - 56) / 2 + 2, 19), size, gfx.INK)
     gfx.rrect(s, (w - 12 - 54, 8, 44, 22), gfx.MINT if boosted else gfx.YELLOW, 11)
     gfx.text(s, f"¥{price}", (w - 12 - 32, 19), 13, (255, 255, 255) if boosted else (107, 67, 0))
     return s
@@ -726,13 +728,13 @@ def shelf(surface, rect, sh, cap, price, boosted, hover, t, rush, hint=None):
     if empty and rush and not sh["restock"]:
         a = int(60 + math.sin(t * 6) * 40)
         gfx.rrect(surface, (x + 9, inner_top, w - 18, inner_h), (255, 91, 91), 8, alpha=a)
-        gfx.text(surface, "EMPTY!", (x + w / 2, inner_top + inner_h / 2), 22, gfx.RED, stroke=(255, 255, 255), stroke_w=3)
+        gfx.text(surface, i18n.t("empty_shelf"), (x + w / 2, inner_top + inner_h / 2), 22, gfx.RED, stroke=(255, 255, 255), stroke_w=3)
     if sh["restock"]:
         rs = sh["restock"]
         f = 1 - rs["t"] / rs["total"]
         gfx.rrect(surface, (x + 9, inner_top, w - 18, inner_h), (255, 255, 255), 8, alpha=170)
         blit_candy(surface, rs["type"], (x + w / 2, y + 108 + math.sin(t * 10) * 4), 56)
-        gfx.text(surface, "Restocking...", (x + w / 2, y + 166), 15, gfx.INK)
+        gfx.text(surface, i18n.t("restocking"), (x + w / 2, y + 166), 15, gfx.INK)
         gfx.rrect(surface, (x + 22, y + 180, w - 44, 14), (243, 220, 232), 7)
         if f > 0.05:
             gfx.rrect(surface, (x + 22, y + 180, int((w - 44) * f), 14), gfx.PINK, 7)
@@ -870,8 +872,8 @@ def school():
 def price_tag():
     s = sprite(232, 108, lambda p: (p.rect((255, 255, 255), 0, 0, 232, 108, 22), p.rect((255, 59, 107), 6, 6, 220, 96, 18),
                                     p.circle((255, 255, 255), 30, 54, 9)))
-    gfx.text(s, "50% OFF", (128, 46), 40, (255, 255, 255), stroke=(184, 32, 74), stroke_w=3)
-    gfx.text(s, "LOLLIPOPS", (128, 82), 18, (255, 233, 107))
+    gfx.text(s, i18n.t("sale_tag_big"), (128, 46), 40, (255, 255, 255), stroke=(184, 32, 74), stroke_w=3)
+    gfx.text(s, i18n.t("sale_tag_small"), (128, 82), 18, (255, 233, 107))
     return s
 
 
@@ -1055,7 +1057,7 @@ def event_art(surface, eid, t):
         for _z, kind, x, y, s, i in sorted(items):
             blit_candy(surface, kind, (x, y), s, i)
         if eid == "opening":
-            ban = _banner("GRAND OPENING")
+            ban = _banner(i18n.t("grand_opening_banner"))
             ban = pygame.transform.rotozoom(ban, math.sin(t * 2) * 3, 1)
             surface.blit(ban, ban.get_rect(center=(w / 2, h * 0.48)))
         else:
@@ -1133,14 +1135,14 @@ def _title_ground():
 def draw_logo(surface, cx, y, t):
     word = "Candy Store"
     cols = [(159, 240, 222), (255, 241, 248), (255, 224, 102)]
-    f = gfx.font(92)
+    f = gfx.font(92, latin=True)
     widths = [f.size(ch)[0] for ch in word]
     total = sum(widths)
     x = cx - total / 2
     for i, ch in enumerate(word):
         if ch != " ":
             dy = math.sin(t * 3.9 - i * 0.5) * 10
-            img = gfx.render_text(ch, 92, cols[i % 3], True, (217, 58, 125), 6, (122, 30, 90))
+            img = gfx.render_text(ch, 92, cols[i % 3], True, (217, 58, 125), 6, (122, 30, 90), latin=True)
             rot = pygame.transform.rotozoom(img, math.sin(t * 3.9 - i * 0.5) * 3, 1)
             surface.blit(rot, rot.get_rect(center=(x + widths[i] / 2, y + 50 + dy)))
         x += widths[i]
@@ -1155,13 +1157,13 @@ def _tycoon_badge():
     gfx.rrect(s, (4, 8, 352, 74), (69, 38, 194), 22)
     gfx.rrect(s, (4, 2, 352, 74), (255, 255, 255), 22)
     gfx.rrect(s, (9, 7, 342, 64), (143, 117, 255), 18, grad_to=(99, 66, 240))
-    f = gfx.font(50)
+    f = gfx.font(50, latin=True)
     word = "TYCOON"
     spacing = 12
     total = sum(f.size(c)[0] for c in word) + spacing * (len(word) - 1)
     x = 180 - total / 2
     for c in word:
-        img = gfx.render_text(c, 50, (255, 255, 255), True, None, 0, (69, 38, 194))
+        img = gfx.render_text(c, 50, (255, 255, 255), True, None, 0, (69, 38, 194), latin=True)
         s.blit(img, (x - 3, 39 - img.get_height() / 2))
         x += f.size(c)[0] + spacing
     return s

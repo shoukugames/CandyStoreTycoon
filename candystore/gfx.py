@@ -48,24 +48,54 @@ def hexrgb(h):
 
 # ---------------- fonts & text ----------------
 
-@lru_cache(maxsize=64)
-def font(size, bold=True):
-    name = "Fredoka-Bold.ttf" if bold else "Fredoka-Medium.ttf"
+FONTS = {"en": ("Fredoka-Bold.ttf", "Fredoka-Medium.ttf", 1.0),
+         "ja": ("MPLUSRounded1c-Bold.ttf", "MPLUSRounded1c-Medium.ttf", 0.95)}
+
+
+def _lang():
+    from .i18n import LANG
+    return LANG["current"]
+
+
+@lru_cache(maxsize=96)
+def _font(size, bold, face):
+    bold_name, medium_name, scale = FONTS[face]
     try:
-        return pygame.font.Font(asset("fonts", name), int(size))
+        return pygame.font.Font(asset("fonts", bold_name if bold else medium_name), max(6, int(size * scale)))
     except (pygame.error, FileNotFoundError, OSError):
         return pygame.font.Font(None, int(size * 1.3))
+
+
+def _has_cjk(s):
+    return any(0x3000 <= ord(ch) <= 0x9FFF or 0xFF00 <= ord(ch) <= 0xFFEF or 0xF900 <= ord(ch) <= 0xFAFF for ch in s)
+
+
+def font(size, bold=True, latin=False, sample=None):
+    """The game font for the current language (latin=True forces the Latin display font, e.g. the logo).
+    Text containing Japanese characters (sample) always gets the Japanese font, so a shop named in
+    Japanese still reads correctly when the game is switched to English."""
+    face = "en" if latin else _lang()
+    if face == "en" and sample and _has_cjk(sample):
+        face = "ja"
+    return _font(int(size), bool(bold), face)
+
+
+def text_size(s, size, bold=True, latin=False):
+    return font(size, bold, latin, s).size(s)
+
+
+font.cache_clear = _font.cache_clear
 
 
 _text_cache = {}
 
 
-def render_text(s, size, color, bold=True, stroke=None, stroke_w=0, shadow=None):
-    key = (s, size, color, bold, stroke, stroke_w, shadow)
+def render_text(s, size, color, bold=True, stroke=None, stroke_w=0, shadow=None, latin=False):
+    key = (s, size, color, bold, stroke, stroke_w, shadow, latin or _lang())
     surf = _text_cache.get(key)
     if surf is not None:
         return surf
-    f = font(size, bold)
+    f = font(size, bold, latin, s)
     body = f.render(s, True, color)
     if not stroke and not shadow:
         surf = body
@@ -104,8 +134,10 @@ def _ring(r):
     return tuple(pts)
 
 
-def text(surface, s, pos, size, color=INK, anchor="center", bold=True, stroke=None, stroke_w=0, shadow=None, alpha=255):
-    surf = render_text(str(s), int(size), tuple(color), bold, stroke and tuple(stroke), stroke_w, shadow and tuple(shadow))
+def text(surface, s, pos, size, color=INK, anchor="center", bold=True, stroke=None, stroke_w=0, shadow=None, alpha=255,
+         latin=False):
+    surf = render_text(str(s), int(size), tuple(color), bold, stroke and tuple(stroke), stroke_w, shadow and tuple(shadow),
+                       latin)
     rect = surf.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
     if alpha < 255:
         surf = surf.copy()
@@ -114,20 +146,48 @@ def text(surface, s, pos, size, color=INK, anchor="center", bold=True, stroke=No
     return rect
 
 
-def wrap(s, size, width, bold=False):
-    f = font(size, bold)
+NO_LINE_START = set("、。，．！？）」』】〉》ー〜…・ぁぃぅぇぉっゃゅょァィゥェォッャュョ!?),.:;%")
+
+
+def _is_cjk(ch):
+    o = ord(ch)
+    return 0x3000 <= o <= 0x9FFF or 0xFF00 <= o <= 0xFFEF or 0xF900 <= o <= 0xFAFF
+
+
+def _tokens(para):
+    """Split into wrap units: Latin words (with their trailing space) or single CJK characters."""
+    out, word = [], ""
+    for ch in para:
+        if _is_cjk(ch) or ch in NO_LINE_START and word == "":
+            if word:
+                out.append(word)
+                word = ""
+            out.append(ch)
+        elif ch == " ":
+            out.append(word + " ")
+            word = ""
+        else:
+            word += ch
+    if word:
+        out.append(word)
+    return out
+
+
+def wrap(s, size, width, bold=False, latin=False):
+    f = font(size, bold, latin)
     lines = []
     for para in s.split("\n"):
-        words, line = para.split(" "), ""
-        for w in words:
-            test = (line + " " + w).strip()
-            if f.size(test)[0] <= width:
+        line = ""
+        for tok in _tokens(para):
+            test = line + tok
+            if f.size(test.rstrip())[0] <= width or not line.strip():
                 line = test
+            elif tok[0] in NO_LINE_START:
+                line = test          # never start a line with closing punctuation
             else:
-                if line:
-                    lines.append(line)
-                line = w
-        lines.append(line)
+                lines.append(line.rstrip())
+                line = tok.lstrip()
+        lines.append(line.rstrip())
     return lines
 
 

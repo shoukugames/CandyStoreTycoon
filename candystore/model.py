@@ -15,65 +15,38 @@ BASE_PANTRY = 50
 BASE_SHELF = 10
 
 PRODUCTS = {
-    "lolli":  {"name": "Lollipop",      "cost": 20, "price": 45,  "pop": 34, "unlock": 1, "color": (255, 95, 162),
-               "desc": "Cheap and sells super fast."},
-    "gummy":  {"name": "Gummy Bears",   "cost": 35, "price": 75,  "pop": 24, "unlock": 1, "color": (255, 154, 60),
-               "desc": "Chewy, fruity, always popular."},
-    "ice":    {"name": "Ice Pop",       "cost": 25, "price": 55,  "pop": 13, "unlock": 1, "color": (47, 168, 255),
-               "desc": "Cool treat. Wild on hot days!"},
-    "choc":   {"name": "Chocolate Bar", "cost": 70, "price": 160, "pop": 12, "unlock": 1, "color": (139, 74, 43),
-               "desc": "Sells slower, but BIG profit."},
-    "jaw":    {"name": "Jawbreaker",    "cost": 50, "price": 115, "pop": 10, "unlock": 4, "color": (122, 92, 255),
-               "desc": "Rainbow layers that last."},
-    "cotton": {"name": "Cotton Candy",  "cost": 60, "price": 140, "pop": 11, "unlock": 7, "color": (255, 143, 209),
-               "desc": "Fluffy sugar clouds. Trendy!"},
+    "lolli":   {"cost": 20, "price": 45,  "pop": 34, "unlock": 1, "color": (255, 95, 162)},
+    "gummy":   {"cost": 35, "price": 75,  "pop": 24, "unlock": 1, "color": (255, 154, 60)},
+    "ice":     {"cost": 25, "price": 55,  "pop": 13, "unlock": 1, "color": (47, 168, 255)},
+    "choc":    {"cost": 70, "price": 160, "pop": 12, "unlock": 1, "color": (139, 74, 43)},
+    "jaw":     {"cost": 50, "price": 115, "pop": 10, "unlock": 4, "color": (122, 92, 255)},
+    "cotton":  {"cost": 60, "price": 140, "pop": 11, "unlock": 7, "color": (255, 143, 209)},
 }
 ORDER = ["lolli", "gummy", "ice", "choc", "jaw", "cotton"]
 
 EVENTS = {
-    "opening": {"name": "Grand Opening!",
-                "desc": "Your candy store opens today! Buy candy at the Market, stock your shelves, then open the doors.",
-                "effects": [("info", "Fewer customers while word spreads")]},
-    "normal": {"name": "A Sweet Ordinary Day", "desc": "Nothing unusual today. A perfect day to plan ahead!",
-               "effects": [("info", "Normal prices and customers")]},
-    "heatwave": {"name": "Summer Heatwave",
-                 "desc": "It is SO hot! Chocolate in your pantry melted, but everyone wants ice pops.",
-                 "melt": {"choc": 5}, "sell_mult": {"ice": 2.0}, "demand_mult": {"ice": 3.0, "choc": 0.5},
-                 "effects": [("bad", "Up to 5 chocolate bars melt"), ("good", "Ice Pops sell for DOUBLE")]},
-    "recess": {"name": "School Recess Rush",
-               "desc": "The school bell rang! A huge wave of hungry kids is coming. Restock twice as fast!",
-               "spawn_mult": 1.7, "waves": [18.0, 46.0], "patience_mult": 0.85,
-               "effects": [("good", "TONS of customers"), ("bad", "Kids are less patient")]},
-    "sale": {"name": "Wholesaler Sale", "desc": "Lollipops are half price at the market today! Stock up while it is cheap.",
-             "cost_mult": {"lolli": 0.5}, "effects": [("good", "Lollipops cost 50% less")]},
-    "rain": {"name": "Rainy Day", "desc": "Pitter-patter! Fewer kids come out, but the ones who do want cozy chocolate.",
-             "spawn_mult": 0.75, "demand_mult": {"choc": 2.5, "ice": 0.3}, "patience_mult": 1.2,
-             "effects": [("bad", "Fewer customers"), ("good", "Chocolate in demand"), ("good", "Kids wait longer")]},
-    "party": {"name": "Birthday Party", "desc": "A birthday party is happening nearby. Party kids buy gummy bears by the handful!",
-              "demand_mult": {"gummy": 2.5}, "big_order": "gummy",
-              "effects": [("good", "Gummy Bear demand way up"), ("info", "Some kids buy 3 to 5")]},
-    "festival": {"name": "Candy Festival", "desc": "The town candy festival is on! Everyone happily pays a little more.",
-                 "sell_all": 1.25, "spawn_mult": 1.15,
-                 "effects": [("good", "All candy sells for +25%"), ("good", "More customers")]},
-    "cocoa": {"name": "Cocoa Shortage", "desc": "Cocoa beans are hard to find. Chocolate costs more, but sells for more too.",
-              "cost_mult": {"choc": 1.5}, "sell_mult": {"choc": 1.3},
-              "effects": [("bad", "Chocolate costs +50%"), ("good", "Chocolate sells for +30%")]},
-    "sunny": {"name": "Sunny Saturday", "desc": "No school and lovely weather! Families are out walking all day.",
-              "spawn_mult": 1.35, "demand_mult": {"ice": 1.5}, "effects": [("good", "Lots more customers")]},
-    "spooky": {"name": "Spooky Costume Day", "desc": "Kids are out in costumes and they LOVE jawbreakers and lollipops.",
-               "demand_mult": {"jaw": 2.5, "lolli": 1.5}, "spawn_mult": 1.1, "min_day": 5,
-               "effects": [("good", "Jawbreakers and Lollipops in demand")]},
+    "opening": {},
+    "normal": {},
+    "heatwave": {"melt": {"choc": 5}, "sell_mult": {"ice": 2.0}, "demand_mult": {"ice": 3.0, "choc": 0.5}},
+    "recess": {"spawn_mult": 1.7, "waves": [18.0, 46.0], "patience_mult": 0.85},
+    "sale": {"cost_mult": {"lolli": 0.5}},
+    "rain": {"spawn_mult": 0.75, "demand_mult": {"choc": 2.5, "ice": 0.3}, "patience_mult": 1.2},
+    "party": {"demand_mult": {"gummy": 2.5}, "big_order": "gummy"},
+    "festival": {"sell_all": 1.25, "spawn_mult": 1.15},
+    "cocoa": {"cost_mult": {"choc": 1.5}, "sell_mult": {"choc": 1.3}},
+    "sunny": {"spawn_mult": 1.35, "demand_mult": {"ice": 1.5}},
+    "spooky": {"demand_mult": {"jaw": 2.5, "lolli": 1.5}, "spawn_mult": 1.1, "min_day": 5},
 }
 EVENT_POOL = [("normal", 18), ("heatwave", 11), ("recess", 11), ("sale", 11), ("rain", 9), ("party", 9),
               ("festival", 7), ("cocoa", 7), ("sunny", 9), ("spooky", 6)]
 
 UPGRADES = [
-    {"id": "pantry", "name": "Bigger Pantry", "desc": "+25 storage slots", "cost": [900, 1800, 3200], "icon": "box"},
-    {"id": "shelf", "name": "Extra Shelf", "desc": "Another display shelf", "cost": [1200, 2600], "icon": "shelf"},
-    {"id": "shelf_size", "name": "Taller Shelves", "desc": "+4 items per shelf", "cost": [1000, 2400], "icon": "tall"},
-    {"id": "stocker", "name": "Speedy Stocker", "desc": "Restock twice as fast", "cost": [800], "icon": "bolt"},
-    {"id": "sign", "name": "Neon Candy Sign", "desc": "+20% customers per level", "cost": [1500, 3200], "icon": "sign"},
-    {"id": "jukebox", "name": "Jukebox", "desc": "Kids wait 35% longer", "cost": [1100], "icon": "music"},
+    {"id": "pantry", "cost": [900, 1800, 3200], "icon": "box"},
+    {"id": "shelf", "cost": [1200, 2600], "icon": "shelf"},
+    {"id": "shelf_size", "cost": [1000, 2400], "icon": "tall"},
+    {"id": "stocker", "cost": [800], "icon": "bolt"},
+    {"id": "sign", "cost": [1500, 3200], "icon": "sign"},
+    {"id": "jukebox", "cost": [1100], "icon": "music"},
 ]
 UPGRADE_BY_ID = {u["id"]: u for u in UPGRADES}
 
@@ -109,6 +82,8 @@ def new_state(shop_name="Sweet Treats"):
 
 
 class Game:
+    """Messages returned by actions are (key, params) tuples; i18n.msg() turns them into text."""
+
     def __init__(self, shop_name="Sweet Treats", state=None, rng=None):
         self.rng = rng or random.Random()
         self.s = state if state is not None else new_state(shop_name)
@@ -227,14 +202,14 @@ class Game:
 
     def open_store(self):
         if self.s["phase"] != "prep":
-            return False, "The store can only open during prep."
+            return False, ("not_prep", {})
         if self.shelf_stock() == 0:
-            return False, "Your shelves are empty! Stock them first."
+            return False, ("shelves_empty", {})
         self.s["phase"] = "rush"
         self.s["rush"] = {"elapsed": 0.0, "spawn_t": 1.0, "customers": [], "served": 0, "unhappy": 0, "revenue": 0,
                           "sold": {}, "rep_start": self.s["rep"], "waves": list(self.ev.get("waves", [])),
                           "queue": [], "closed": False}
-        return True, "The store is OPEN!"
+        return True, ("open", {})
 
     # ---------- market ----------
     def max_buy(self, k):
@@ -242,35 +217,33 @@ class Game:
 
     def buy(self, k, n):
         if not self.unlocked(k):
-            return False, "That candy is still locked."
+            return False, ("locked", {})
         room = self.pantry_cap() - self.pantry_used()
         c = self.cost(k)
         if n == "max":
             n = self.max_buy(k)
         if room <= 0:
-            return False, "Your pantry is full! Put candy on shelves to make space."
+            return False, ("pantry_full", {})
         if n > room:
-            return False, f"Only {room} space left in the pantry!"
-        if n * c > self.s["money"]:
-            return False, "Not enough money!"
-        if n <= 0:
-            return False, "Not enough money!"
+            return False, ("space_left", {"n": room})
+        if n <= 0 or n * c > self.s["money"]:
+            return False, ("no_money", {})
         self.s["money"] -= n * c
         self.s["pantry"][k] += n
-        return True, ""
+        return True, None
 
     def buy_upgrade(self, uid):
         u = UPGRADE_BY_ID[uid]
         lvl = self.s["upgrades"][uid]
         if lvl >= len(u["cost"]):
-            return False, "Already maxed out!"
+            return False, ("maxed", {})
         c = u["cost"][lvl]
         if self.s["money"] < c:
-            return False, "Not enough money!"
+            return False, ("no_money", {})
         self.s["money"] -= c
         self.s["upgrades"][uid] += 1
         self.sync_shelves()
-        return True, f"{u['name']} purchased!"
+        return True, ("upgraded", {"upgrade": uid})
 
     # ---------- shelves (prep) ----------
     def set_shelf_type(self, i, k):
@@ -306,14 +279,14 @@ class Game:
     def begin_restock(self, i, k):
         sh = self.s["shelves"][i]
         if sh["restock"]:
-            return False, "Already restocking this shelf!"
+            return False, ("restocking", {})
         if self.s["pantry"].get(k, 0) <= 0:
-            return False, f"No {PRODUCTS[k]['name']} in your pantry!"
+            return False, ("none_in_pantry", {"type": k})
         if sh["type"] == k and sh["count"] >= self.shelf_cap():
-            return False, "That shelf is already full!"
+            return False, ("shelf_full", {})
         t = self.restock_time()
         sh["restock"] = {"type": k, "t": t, "total": t}
-        return True, ""
+        return True, None
 
     def complete_restock(self, i):
         sh = self.s["shelves"][i]
@@ -472,8 +445,7 @@ class Game:
                 self._leave(c, "sad")
                 self.s["rush"]["unhappy"] += 1
                 self.s["rep"] = max(1.0, self.s["rep"] - (0.025 if c["no_shelf"] else 0.05))
-                text = f"No {PRODUCTS[c['craving']]['name']}?!" if c["no_shelf"] else "Too slow!"
-                self.emit("unhappy", x=c["x"], y=c["y"], text=text)
+                self.emit("unhappy", x=c["x"], y=c["y"], craving=c["craving"], no_shelf=c["no_shelf"])
         elif st in ("exit", "leave"):
             c["walking"] = True
             if self._move(c, 1360 if st == "exit" else c["tx"], dt):

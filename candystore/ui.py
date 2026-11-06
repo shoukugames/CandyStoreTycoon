@@ -227,18 +227,39 @@ class Slider:
 
 
 class TextInput:
+    """Single-line text box. Supports Japanese input methods (IME): the text being composed is shown underlined."""
+
     def __init__(self, rect, value="", max_len=22):
         self.rect = pygame.Rect(rect)
         self.value, self.max_len = value, max_len
         self.select_all = True
+        self.composing = ""
+
+    def ime_rect(self, app):
+        """Tell the input method where the box is (window coordinates) so its candidate list appears beside it."""
+        try:
+            scale, ox, oy = app._transform()
+            r = self.rect
+            pygame.key.set_text_input_rect(pygame.Rect(int(ox + r.x * scale), int(oy + r.bottom * scale),
+                                                       int(r.w * scale), 10))
+        except (pygame.error, AttributeError):
+            pass
 
     def handle(self, event, app):
+        if event.type == pygame.TEXTEDITING:
+            self.composing = event.text
+            if event.text and self.select_all:
+                self.value, self.select_all = "", False
+            return True
         if event.type == pygame.TEXTINPUT:
+            self.composing = ""
             if self.select_all:
                 self.value, self.select_all = "", False
             self.value = (self.value + event.text)[: self.max_len]
             return True
         if event.type == pygame.KEYDOWN:
+            if self.composing:
+                return True            # keys belong to the input method while composing
             if event.key == pygame.K_BACKSPACE:
                 self.value = "" if self.select_all else self.value[:-1]
                 self.select_all = False
@@ -251,12 +272,18 @@ class TextInput:
     def draw(self, surface, t=0.0):
         gfx.rrect(surface, self.rect, gfx.PINK, 18)
         gfx.rrect(surface, self.rect.inflate(-8, -8), (255, 255, 255), 14)
+        f = gfx.font(28)
+        shown = self.value + self.composing
         if self.select_all and self.value:
-            tw = gfx.font(28).size(self.value)[0]
+            tw = f.size(self.value)[0]
             gfx.rrect(surface, (self.rect.centerx - tw / 2 - 4, self.rect.centery - 18, tw + 8, 36), (255, 214, 234), 8)
-        r = gfx.text(surface, self.value, self.rect.center, 28, gfx.INK)
+        r = gfx.text(surface, shown, self.rect.center, 28, gfx.INK)
+        if self.composing:
+            cw = f.size(self.composing)[0]
+            pygame.draw.line(surface, gfx.PURPLE, (r.right - cw, r.bottom - 6), (r.right, r.bottom - 6), 2)
         if int(t * 2) % 2 == 0 and not self.select_all:
-            pygame.draw.line(surface, gfx.PINK_D, (r.right + 3, r.top + 6), (r.right + 3, r.bottom - 6), 3)
+            x = r.right + 3 if shown else self.rect.centerx
+            pygame.draw.line(surface, gfx.PINK_D, (x, self.rect.centery - 14), (x, self.rect.centery + 14), 3)
 
 
 class Toasts:

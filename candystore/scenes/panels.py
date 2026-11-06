@@ -5,7 +5,8 @@ import time
 
 import pygame
 
-from .. import art, gfx, storage, ui
+from .. import art, gfx, i18n, storage, ui
+from ..i18n import t
 from ..app import Overlay
 from ..model import WIN_MONEY
 
@@ -21,8 +22,8 @@ class Label:
     def handle(self, event, app):
         return False
 
-    def draw(self, surface, t):
-        self.fn(surface, t)
+    def draw(self, surface, tm):
+        self.fn(surface, tm)
 
 
 class Tile:
@@ -48,7 +49,7 @@ class Tile:
             return True
         return False
 
-    def draw(self, surface, t):
+    def draw(self, surface, tm):
         r = self.rect.move(0, -2 if self.hover and self.enabled else 0)
         if self.selected:
             gfx.rrect(surface, r.inflate(8, 8), (255, 208, 228), 15)
@@ -117,16 +118,16 @@ class SavesOverlay(Overlay):
             y = row.top + 12
             if self.mode == "save":
                 confirming = self.confirm == ("save", n)
-                self.widgets.append(ui.Button((bx, y, 136, 32), "Overwrite?" if confirming else "Save Here",
+                self.widgets.append(ui.Button((bx, y, 136, 32), t("overwrite") if confirming else t("save_here"),
                                               lambda n=n: self._save(n), "red" if confirming else "pink", 15, radius=12, sound=None))
                 y += 38
             if data:
-                self.widgets.append(ui.Button((bx, y, 136, 32), "Load", lambda n=n: self.on_load(n), "mint", 15, radius=12))
+                self.widgets.append(ui.Button((bx, y, 136, 32), t("load"), lambda n=n: self.on_load(n), "mint", 15, radius=12))
                 y += 38
                 confirming = self.confirm == ("del", n)
-                self.widgets.append(ui.Button((bx, y, 136, 32), "Really delete?" if confirming else "Delete",
+                self.widgets.append(ui.Button((bx, y, 136, 32), t("really_delete") if confirming else t("delete"),
                                               lambda n=n: self._delete(n), "red" if confirming else "white", 15, radius=12))
-        self.widgets.append(ui.Button((CX - 70, p.bottom - 64, 140, 46), "Back", self.close, "white", 20))
+        self.widgets.append(ui.Button((CX - 70, p.bottom - 64, 140, 46), t("back"), self.close, "white", 20))
 
     def _save(self, n):
         if storage.read_slot(n) and self.confirm != ("save", n):
@@ -137,10 +138,10 @@ class SavesOverlay(Overlay):
         self.confirm = None
         if self.on_save and self.on_save(n):
             self.app.audio.play("save")
-            self.scene.toast(f"Game saved to Slot {n}!", "good")
+            self.scene.toast(t("saved_to", n=n), "good")
         else:
             self.app.audio.play("error")
-            self.scene.toast("Could not save the game.", "bad")
+            self.scene.toast(t("save_failed"), "bad")
         self.refresh()
 
     def _delete(self, n):
@@ -150,14 +151,14 @@ class SavesOverlay(Overlay):
             return
         self.confirm = None
         storage.delete_slot(n)
-        self.scene.toast(f"Slot {n} deleted.")
+        self.scene.toast(t("slot_deleted", n=n))
         self.refresh()
 
-    def draw(self, surface, t):
+    def draw(self, surface, tm):
         p = self.panel
-        ui.draw_panel(surface, p, "Save Game" if self.mode == "save" else "Load Game", "purple")
+        ui.draw_panel(surface, p, t("save_title") if self.mode == "save" else t("load_title"), "purple")
         if self.paused_note:
-            gfx.text(surface, "The store is paused while this menu is open.", (CX, p.top + 66), 16, gfx.INK_SOFT, bold=False)
+            gfx.text(surface, t("paused_note"), (CX, p.top + 66), 16, gfx.INK_SOFT, bold=False)
         for n, row, data in self.rows:
             gfx.rrect(surface, row.move(0, 4), (255, 208, 228), 20)
             gfx.rrect(surface, row, (255, 208, 228), 20)
@@ -176,21 +177,21 @@ class SavesOverlay(Overlay):
                 surface.blit(img, th)
             else:
                 gfx.rrect(surface, th, (243, 225, 236), 11)
-                gfx.text(surface, "Saved" if data else "Empty", th.center, 17, (201, 163, 184))
+                gfx.text(surface, t("saved") if data else t("empty"), th.center, 17, (201, 163, 184))
             x = th.right + 20
             if data:
                 m = data["meta"]
                 gfx.text(surface, m.get("shop_name", "Shop"), (x, row.top + 30), 22, gfx.INK, anchor="midleft")
-                extra = " · mid-rush" if m.get("phase") == "rush" else ""
-                gfx.text(surface, f"Day {m.get('day', 1)}  ·  ¥{m.get('money', 0):,}{extra}", (x, row.top + 60), 16,
+                extra = "  ·  " + t("mid_rush") if m.get("phase") == "rush" else ""
+                gfx.text(surface, f"{i18n.day_label(m.get('day', 1))}  ·  {i18n.yen(m.get('money', 0))}{extra}", (x, row.top + 60), 16,
                          gfx.INK_SOFT, anchor="midleft", bold=False)
                 ui.stars(surface, m.get("rep", 3), (x, row.top + 76), 18)
                 when = time.strftime("%Y-%m-%d %H:%M", time.localtime(m.get("saved_at", 0)))
-                gfx.text(surface, f"Saved {when}", (x, row.top + 108), 13, (176, 138, 160), anchor="midleft", bold=False)
+                gfx.text(surface, t("saved_at", when=when), (x, row.top + 108), 13, (176, 138, 160), anchor="midleft", bold=False)
             else:
-                gfx.text(surface, "Empty Slot", (x, row.top + 46), 22, (201, 163, 184), anchor="midleft")
-                gfx.text(surface, "No game saved here yet.", (x, row.top + 76), 16, gfx.INK_SOFT, anchor="midleft", bold=False)
-        super().draw(surface, t)
+                gfx.text(surface, t("empty_slot"), (x, row.top + 46), 22, (201, 163, 184), anchor="midleft")
+                gfx.text(surface, t("no_save"), (x, row.top + 76), 16, gfx.INK_SOFT, anchor="midleft", bold=False)
+        super().draw(surface, tm)
 
 
 # ======================= SETTINGS =======================
@@ -215,58 +216,43 @@ class SettingsOverlay(Overlay):
             self.app.audio.apply_volume()
             self.app.save_settings()
         y = p.top + 100
-        for key, vkey, label in (("music", "music_volume", "Music"), ("sfx", "sfx_volume", "Sounds")):
-            self.widgets.append(Label(lambda surf, t, label=label, y=y: gfx.text(surf, label, (p.left + 50, y), 22, gfx.INK, anchor="midleft")))
+        for key, vkey, label in (("music", "music_volume", t("music")), ("sfx", "sfx_volume", t("sounds"))):
+            self.widgets.append(Label(lambda surf, tm, label=label, y=y: gfx.text(surf, label, (p.left + 50, y), 22, gfx.INK, anchor="midleft")))
             self.widgets.append(ui.Slider((p.left + 170, y - 12, 230, 24), s[vkey], lambda v, vk=vkey: vol(vk, v)))
-            self.widgets.append(ui.Button((p.right - 130, y - 20, 86, 40), "On" if s[key] else "Off",
+            self.widgets.append(ui.Button((p.right - 130, y - 20, 86, 40), t("on") if s[key] else t("off"),
                                           lambda k=key: toggle(k), "mint" if s[key] else "white", 18, radius=14))
             y += 76
 
         def fullscreen():
             self.app.toggle_fullscreen()
             self.refresh()
-        self.widgets.append(ui.Button((CX - 130, y - 10, 260, 46), "Exit Full Screen" if self.app.fullscreen else "Full Screen",
+        self.widgets.append(ui.Button((CX - 130, y - 10, 260, 46), t("exit_full_screen") if self.app.fullscreen else t("full_screen"),
                                       fullscreen, "purple", 19))
-        self.widgets.append(ui.Button((CX - 60, p.bottom - 66, 120, 46), "Done", self.close, "pink", 20))
+        self.widgets.append(ui.Button((CX - 70, p.bottom - 66, 140, 46), t("done"), self.close, "pink", 20))
 
-    def draw(self, surface, t):
-        ui.draw_panel(surface, self.panel, "Settings", "purple")
-        gfx.text(surface, "Keys: Esc menu · M music · Space speed · F11 full screen", (CX, self.panel.bottom - 92), 14,
+    def draw(self, surface, tm):
+        ui.draw_panel(surface, self.panel, t("settings"), "purple")
+        gfx.text(surface, t("keys_help"), (CX, self.panel.bottom - 92), 14,
                  gfx.INK_SOFT, bold=False)
-        super().draw(surface, t)
+        super().draw(surface, tm)
 
 
 # ======================= HOW TO PLAY =======================
-
-HOWTO = [
-    ("The Register", "You start with ¥1,000. Spend it wisely at the Market on lollipops, gummy bears, chocolate and more. "
-                     "Run out of money AND candy and it is Game Over!"),
-    ("The Pantry", "Candy you buy waits in your backroom pantry. It holds 50 items to start. When it is full you cannot buy "
-                   "more until you clear some space."),
-    ("The Shop Floor", "Kids only buy candy they can SEE on your display shelves. Each shelf holds 10 of one candy. Cheap "
-                       "lollipops sell fast; chocolate sells slower but earns far more. You decide!"),
-    ("The Rush", "Press Open Store. Kids show what they want in a thought bubble with a patience ring. Have it on a shelf and "
-                 "they pay you. Wait too long and they leave sad, lowering your star rating."),
-    ("Restocking", "During the rush, click any shelf to refill it from your pantry, or switch it to a different candy."),
-    ("Every Morning", "A new event: heatwaves, recess rushes, wholesale sales and more. Read the card and plan ahead!"),
-    ("Grow", f"Rent is due each night. Buy upgrades at the Market. Reach ¥{WIN_MONEY:,} to become a Candy Tycoon. "
-             "You can save at any time in one of 3 save slots."),
-]
-
 
 class HowToOverlay(Overlay):
     def build(self):
         self.panel = pygame.Rect(0, 0, 860, 640)
         self.panel.center = (CX, CY + 8)
         self.widgets.append(close_button(self, self.panel))
-        self.widgets.append(ui.Button((CX - 80, self.panel.bottom - 62, 160, 46), "Got it!", self.close, "pink", 20))
+        self.widgets.append(ui.Button((CX - 90, self.panel.bottom - 62, 180, 46), t("got_it"), self.close, "pink", 20))
 
-    def draw(self, surface, t):
+    def draw(self, surface, tm):
         p = self.panel
-        ui.draw_panel(surface, p, "How to Play")
+        ui.draw_panel(surface, p, t("how_to_play"))
         y = p.top + 58
         icons = ["coin", "box", "lolli", "gummy", "choc", "ice", "cotton"]
-        for i, (head, body) in enumerate(HOWTO):
+        for i in range(7):
+            head, body = t(f"h{i + 1}"), t(f"b{i + 1}", goal=i18n.yen(WIN_MONEY))
             ix, iy = p.left + 56, y + 22
             if icons[i] in ("coin",):
                 img = art.coin(18)
@@ -279,19 +265,15 @@ class HowToOverlay(Overlay):
             gfx.text(surface, head, (p.left + 92, y + 8), 19, gfx.PINK_D, anchor="midleft")
             y2 = gfx.paragraph(surface, body, (p.left + 92, y + 22), 15, p.w - 140, gfx.INK, anchor="topleft", spacing=1.2)
             y = max(y2, y + 50) + 10
-        super().draw(surface, t)
+        super().draw(surface, tm)
 
 
 # ======================= NAME YOUR SHOP =======================
 
-NAMES_A = ["Sugar", "Candy", "Gumdrop", "Lolly", "Rainbow", "Sprinkle", "Bubble", "Cocoa", "Jelly", "Fizzy", "Taffy", "Honey"]
-NAMES_B = ["Shack", "Palace", "Corner", "Castle", "Emporium", "Hut", "Factory", "Kingdom", "Station", "Cottage", "Market", "Island"]
-
-
 class NameOverlay(Overlay):
     def __init__(self, scene, on_start):
         self.on_start = on_start
-        self.input = ui.TextInput((0, 0, 420, 64), "Sweet Treats")
+        self.input = ui.TextInput((0, 0, 420, 64), t("default_shop"))
         super().__init__(scene)
 
     def build(self):
@@ -300,15 +282,15 @@ class NameOverlay(Overlay):
         p = self.panel
         self.input.rect.center = (CX, p.top + 150)
         self.widgets += [close_button(self, p), self.input,
-                         ui.Button((CX - 90, p.top + 204, 180, 38), "Random Name", self._random, "yellow", 16, radius=13),
-                         ui.Button((CX - 90, p.bottom - 82, 180, 56), "Start!", self._start, "pink", 24)]
+                         ui.Button((CX - 90, p.top + 204, 180, 38), t("random_name"), self._random, "yellow", 16, radius=13),
+                         ui.Button((CX - 100, p.bottom - 82, 200, 56), t("start"), self._start, "pink", 24)]
 
     def _random(self):
-        self.input.value = f"{random.choice(NAMES_A)} {random.choice(NAMES_B)}"
+        self.input.value = i18n.random_shop_name(random)
         self.input.select_all = False
 
     def _start(self):
-        name = self.input.value.strip() or "Sweet Treats"
+        name = self.input.value.strip() or t("default_shop")
         self.on_start(name[:22])
 
     def handle(self, event):
@@ -318,10 +300,11 @@ class NameOverlay(Overlay):
             return True
         return super().handle(event)
 
-    def draw(self, surface, t):
-        ui.draw_panel(surface, self.panel, "Name Your Shop")
-        gfx.text(surface, "Every great candy store needs a great name!", (CX, self.panel.top + 76), 18, gfx.INK, bold=False)
-        super().draw(surface, t)
+    def draw(self, surface, tm):
+        self.input.ime_rect(self.app)
+        ui.draw_panel(surface, self.panel, t("name_title"))
+        gfx.text(surface, t("name_prompt"), (CX, self.panel.top + 76), 18, gfx.INK, bold=False)
+        super().draw(surface, tm)
 
 
 # ======================= CONFIRM =======================
@@ -335,10 +318,10 @@ class ConfirmOverlay(Overlay):
         self.panel = pygame.Rect(0, 0, 500, 260)
         self.panel.center = (CX, CY)
         p = self.panel
-        self.widgets += [ui.Button((CX - 200, p.bottom - 80, 180, 50), "Cancel", self.close, "white", 20),
+        self.widgets += [ui.Button((CX - 200, p.bottom - 80, 180, 50), t("cancel"), self.close, "white", 20),
                          ui.Button((CX + 20, p.bottom - 80, 180, 50), self.yes_label, self.on_yes, self.style, 20)]
 
-    def draw(self, surface, t):
+    def draw(self, surface, tm):
         ui.draw_panel(surface, self.panel, self.title, "dark")
         gfx.paragraph(surface, self.message, (CX, self.panel.top + 60), 19, 420, gfx.INK)
-        super().draw(surface, t)
+        super().draw(surface, tm)

@@ -9,7 +9,7 @@ import traceback
 
 import pygame
 
-from . import TITLE, __version__, storage
+from . import TITLE, __version__, i18n, storage
 from .audio import Audio
 from .paths import asset
 from .ui import Toasts
@@ -148,6 +148,9 @@ class App:
         pygame.init()
         pygame.key.set_repeat(400, 40)
         self.settings = storage.load_settings()
+        if self.settings.get("language") not in i18n.LANGS:
+            self.settings["language"] = i18n.default_language()
+        i18n.set_lang(self.settings["language"])
         self.smoke = smoke
         pygame.display.set_caption(f"{TITLE} v{__version__}")
         try:
