@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Candy Store Tycoon
+GenericName=Shop Management Game
+Comment=Run your own candy store: buy stock, fill the shelves and serve the kids (ages 10+)
+Exec=candystoretycoon
+Icon=candystoretycoon
+Terminal=false
+Categories=Game;Simulation;StrategyGame;
+Keywords=candy;shop;store;tycoon;business;money;kids;simulation;

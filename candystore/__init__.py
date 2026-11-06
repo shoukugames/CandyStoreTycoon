@@ -1,0 +1,7 @@
+"""Candy Store Tycoon - run your own candy shop (ages 10+)."""
+__version__ = "0.1.0"
+RELEASE_DATE = "2026-11-06"
+TITLE = "Candy Store Tycoon"
+CREATOR = "Shawn Rapaz"
+WEBSITE = "https://shoukugames.org/"
+EMAIL = "info@shoukugames.org"
