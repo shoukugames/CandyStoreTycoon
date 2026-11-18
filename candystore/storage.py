@@ -9,6 +9,8 @@ import sys
 import tempfile
 import time
 
+from . import WEB
+
 SLOTS = 3
 DEFAULT_SETTINGS = {"music": True, "sfx": True, "music_volume": 0.6, "sfx_volume": 0.8, "fullscreen": False}
 
@@ -34,7 +36,20 @@ def _path(name):
     return os.path.join(data_dir(), name)
 
 
+# In a web browser files vanish when the page closes, so saves go to the browser's localStorage.
+def _web_storage():
+    import platform  # pygbag's bridge to the page
+    return platform.window.localStorage
+
+
 def _load(name, default):
+    if WEB:
+        try:
+            raw = _web_storage().getItem(f"candystore/{name}")
+            data = json.loads(raw) if raw else default
+            return data if isinstance(data, type(default)) else default
+        except Exception:  # noqa: BLE001
+            return default
     path = _path(name)
     try:
         with open(path, encoding="utf-8") as handle:
@@ -53,6 +68,13 @@ def _load(name, default):
 
 
 def _save(name, data):
+    if WEB:
+        try:
+            _web_storage().setItem(f"candystore/{name}", json.dumps(data, ensure_ascii=False))
+            return True
+        except Exception as error:  # noqa: BLE001
+            print(f"Could not save {name}: {error}", file=sys.stderr)
+            return False
     path = _path(name)
     temp = path + ".tmp"
     try:

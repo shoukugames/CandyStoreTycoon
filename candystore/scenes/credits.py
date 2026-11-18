@@ -4,7 +4,7 @@ import webbrowser
 
 import pygame
 
-from .. import CREATOR, EMAIL, RELEASE_DATE, TITLE, WEBSITE, __version__, art, gfx, i18n, ui
+from .. import CREATOR, EMAIL, RELEASE_DATE, TITLE, WEB, WEBSITE, __version__, art, gfx, i18n, ui
 from ..i18n import t
 from ..app import W, H, Scene
 from ..paths import root
@@ -29,7 +29,11 @@ class LinkLabel:
             app.audio.play("click")
             if not app.smoke:
                 try:
-                    webbrowser.open(self.url)
+                    if WEB:
+                        import platform  # pygbag's bridge to the page
+                        platform.window.open(self.url, "_blank")
+                    else:
+                        webbrowser.open(self.url)
                 except Exception:  # noqa: BLE001 - no browser is fine
                     pass
             return True

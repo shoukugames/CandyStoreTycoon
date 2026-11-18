@@ -61,6 +61,23 @@ them happy, pay the rent, grow the store and become a **Candy Tycoon**.
 | 1x / 2x speed during the rush | Space |
 | Full screen | F11 or Alt+Enter |
 
+## Play in the browser
+
+Candy Store Tycoon also runs in a web browser, on computers, phones and tablets, with nothing
+to install: <https://shoukugames.org/play/candy-store-tycoon/> (test page). Everything works by
+tapping or clicking; on touch screens keep the suggested shop name or tap Random Name. Saves
+and settings are kept in the browser.
+
+```bash
+python3 -m pip install pygame pygbag     # plus ffmpeg on PATH (or FFMPEG=/path/to/ffmpeg)
+python3 tools/build_web.py               # -> build/web/: upload the folder as-is
+```
+
+The build uses [pygbag](https://pygame-web.github.io/), which also converts the sounds to OGG.
+`main.py` is the web entry point; the browser-only parts switch on only in the browser.
+The `.apk` file pygbag writes is its bundle of game files, not an Android app. (`web/` is the
+earlier JavaScript prototype.)
+
 ## Install
 
 - **Windows:** run `CandyStoreTycoon-v0.2.0.exe`. There is nothing to install.

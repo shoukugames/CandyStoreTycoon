@@ -3,6 +3,7 @@ import os
 
 import pygame
 
+from . import WEB
 from .paths import asset
 
 MUSIC = {"title": "bgm_title.ogg", "shop": "bgm_shop.ogg", "rush": "bgm_rush.ogg"}
@@ -43,14 +44,14 @@ class Audio:
         if not self.ok or which is None:
             return
         if not self.settings["music"]:
-            pygame.mixer.music.fadeout(500)
+            _stop_music(500)
             self.current = None
             return
         if which == self.current:
             return
         self.current = which
         try:
-            pygame.mixer.music.fadeout(600)
+            _stop_music(600)
             pygame.mixer.music.load(asset("audio", MUSIC[which]))
             self.apply_volume()
             pygame.mixer.music.play(-1, fade_ms=2500)
@@ -64,3 +65,12 @@ class Audio:
 
 def exists():
     return os.path.exists(asset("audio", "click.wav"))
+
+
+def _stop_music(fade_ms):
+    """Fade the music out on the desktop. In a browser a new track waits for the fade to finish,
+    which can't happen while the page is blocked waiting, so the music simply stops there."""
+    if WEB:
+        pygame.mixer.music.stop()
+    else:
+        pygame.mixer.music.fadeout(fade_ms)

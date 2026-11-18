@@ -1,7 +1,7 @@
 """Title screen: animated candy rain, the logo, the main menu, the language toggle and the ages 10+ badge."""
 import pygame
 
-from .. import RELEASE_DATE, __version__, art, gfx, i18n, storage, ui
+from .. import WEB, RELEASE_DATE, __version__, art, gfx, i18n, storage, ui
 from ..app import W, H, Scene
 from ..i18n import t
 from .panels import HowToOverlay, NameOverlay, SavesOverlay, SettingsOverlay
@@ -63,10 +63,12 @@ class TitleScene(Scene):
                  ("load_game", self.load_menu, "mint"),
                  ("how_to_play", lambda: self.push_overlay(HowToOverlay(self)), "purple"),
                  ("settings", lambda: self.push_overlay(SettingsOverlay(self)), "yellow"),
-                 ("credits", self.credits, "white"), ("quit", self.quit, "white")]
+                 ("credits", self.credits, "white")] + ([] if WEB else [("quit", self.quit, "white")])
         y = 234 + (24 if i18n.lang() == "ja" else 0)
         for i, (key, fn, style) in enumerate(items):
-            if i >= 5:
+            if i >= 5 and len(items) == 6:  # web: Credits alone takes the whole row
+                self.buttons.append(ui.Button((640 - 150, y + 2, 300, 48), t(key), fn, style, 20))
+            elif i >= 5:
                 x = 640 - 150 + (i - 5) * 156
                 self.buttons.append(ui.Button((x, y + 2, 144, 48), t(key), fn, style, 20))
             else:

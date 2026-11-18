@@ -9,7 +9,7 @@ import traceback
 
 import pygame
 
-from . import TITLE, __version__, i18n, storage
+from . import TITLE, WEB, __version__, i18n, storage
 from .audio import Audio
 from .paths import asset
 from .ui import Toasts
@@ -167,7 +167,9 @@ class App:
         self.mouse = (0, 0)
 
     def _make_window(self):
-        if self.fullscreen:
+        if WEB:  # the page scales the canvas to fit the browser window
+            self.window = pygame.display.set_mode((W, H))
+        elif self.fullscreen:
             self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             info = pygame.display.Info()
@@ -215,33 +217,49 @@ class App:
         self.save_settings()
         self._make_window()
 
+    def frame(self, clock):
+        dt = min(clock.tick(60) / 1000.0, 0.05)
+        self.time += dt
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = WEB  # in a browser there is nothing to quit to
+                continue
+            if event.type == pygame.KEYDOWN and (event.key == pygame.K_F11 or
+                                                 (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT)) \
+                    and not WEB:
+                self.toggle_fullscreen()
+                continue
+            if hasattr(event, "pos") and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,
+                                                       pygame.MOUSEMOTION):
+                data = dict(event.dict)
+                data["pos"] = self.to_canvas(event.pos)
+                event = pygame.event.Event(event.type, data)
+            self.scene.handle(event)
+        self.mouse = self.to_canvas(pygame.mouse.get_pos())
+        self.scene.update(dt)
+        self.scene.draw(self.canvas)
+        self.present()
+
     def run(self):
         from .scenes.title import TitleScene
         self.switch(TitleScene(self))
         clock = pygame.time.Clock()
         pygame.key.start_text_input()
         while self.running:
-            dt = min(clock.tick(60) / 1000.0, 0.05)
-            self.time += dt
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    continue
-                if event.type == pygame.KEYDOWN and (event.key == pygame.K_F11 or
-                                                     (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT)):
-                    self.toggle_fullscreen()
-                    continue
-                if hasattr(event, "pos") and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,
-                                                           pygame.MOUSEMOTION):
-                    data = dict(event.dict)
-                    data["pos"] = self.to_canvas(event.pos)
-                    event = pygame.event.Event(event.type, data)
-                self.scene.handle(event)
-            self.mouse = self.to_canvas(pygame.mouse.get_pos())
-            self.scene.update(dt)
-            self.scene.draw(self.canvas)
-            self.present()
+            self.frame(clock)
         pygame.quit()
+
+    async def run_web(self):
+        """Browser main loop: hands control back to the page after every frame."""
+        import asyncio
+        from .scenes.title import TitleScene
+        self.switch(TitleScene(self))
+        clock = pygame.time.Clock()
+        pygame.key.start_text_input()
+        while True:  # a web page has no "quit"; closing the tab ends the game
+            self.running = True
+            self.frame(clock)
+            await asyncio.sleep(0)
 
 
 def _crash_log(error_text):
