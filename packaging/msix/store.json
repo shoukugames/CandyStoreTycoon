@@ -1,0 +1,12 @@
+{
+ "_note": "Replace identity_name, publisher and publisher_display_name with the values from Partner Center (Product management -> Product identity) before uploading to the Microsoft Store.",
+ "identity_name": "ShoukuGames.CandyStoreTycoon",
+ "publisher": "CN=ShoukuGamesPlaceholder",
+ "publisher_display_name": "Shouku Games",
+ "display_name": "Candy Store Tycoon",
+ "description": "Run your own candy shop: buy stock, fill the shelves and keep a rush of hungry kids happy.",
+ "file_name": "CandyStoreTycoon",
+ "exe_name": "CandyStoreTycoon.exe",
+ "alias": "shouku-candy-store-tycoon.exe",
+ "device_capabilities": []
+}
